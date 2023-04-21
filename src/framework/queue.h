@@ -52,3 +52,8 @@ bool queue_enqueue(queue_struct* const queue, void* const value);
  * successful, otherwise returns NULL if the queue is now empty.
  */
 void* queue_dequeue(queue_struct* const queue);
+
+/*
+ * Empties out the internal queue node cache.
+ */
+void queue_empty_cache(queue_struct* const queue);

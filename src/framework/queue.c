@@ -35,6 +35,7 @@ struct node_struct {
 struct queue_struct {
     node_struct* dequeue;
 	node_struct* enqueue;
+    node_struct* cache;
 };
 
 queue_struct* queue_create() {
@@ -48,6 +49,7 @@ queue_struct* queue_create() {
         free(queue);
         return false;
     }
+    queue->cache = NULL;
 
 	return queue;
 }
@@ -56,13 +58,21 @@ void queue_destroy(queue_struct* const queue) {
     assert(queue != NULL);
 
     while (queue_dequeue(queue) != NULL) continue;
+    queue_empty_cache(queue);
     free(queue);
 }
 
 bool queue_enqueue(queue_struct* const queue, void* const value) {
     assert(queue != NULL && value != NULL);
 
-    node_struct* const node = malloc(sizeof(node_struct));
+    node_struct* node;
+    if (queue->cache != NULL) {
+        node = queue->cache;
+        queue->cache = queue->cache->next;
+    }
+    else {
+        node = malloc(sizeof(node_struct));
+    }
     if (node == NULL) {
         return false;
     }
@@ -85,7 +95,18 @@ void* queue_dequeue(queue_struct* const queue) {
     node_struct* const dequeue = queue->dequeue;
     void* const value = dequeue->next->value;
     queue->dequeue = dequeue->next;
-    free(dequeue);
+    dequeue->next = queue->cache;
+    queue->cache = dequeue;
 
     return value;
+}
+
+void queue_empty_cache(queue_struct* const queue) {
+    assert(queue != NULL);
+
+    for (node_struct* current = queue->cache; current != NULL;) {
+        node_struct* const next = current->next;
+        free(current);
+        current = next;
+    }
 }

@@ -43,6 +43,22 @@ static shared_data_struct shared_data[3];
 static SDL_sem* present_sem = NULL;
 static shared_data_struct* shared_current = NULL;
 
+int refresh_rate_get(SDL_Window* const window) {
+	const int display_index = SDL_GetWindowDisplayIndex(window);
+	if (display_index < 0) {
+		fprintf(stderr, "Error: %s\n", SDL_GetError());
+		fflush(stderr);
+		return -1;
+	}
+	SDL_DisplayMode display_mode;
+	if (SDL_GetDesktopDisplayMode(display_index, &display_mode) < 0) {
+		fprintf(stderr, "Error: %s\n", SDL_GetError());
+		fflush(stderr);
+		return -1;
+	}
+	return display_mode.refresh_rate;
+}
+
 int SDLCALL present(void* data) {
 	bool inited = false;
 	int status = 1;
@@ -54,7 +70,14 @@ int SDLCALL present(void* data) {
 		return 0;
 	}
 
-	uint64_t present_point = nanotime_now();
+	nanotime_step_data stepper;
+	int refresh_rate = refresh_rate_get(window);
+	if (refresh_rate < 0) {
+		SDL_AtomicSet(&quit_now, 1);
+		return 0;
+	}
+
+	nanotime_step_init(&stepper, refresh_rate > 0 ? NANOTIME_NSEC_PER_SEC / refresh_rate : NANOTIME_NSEC_PER_SEC / 60, nanotime_now, nanotime_sleep);
 	while (true) {
 		if (SDL_SemWait(present_sem) < 0) {
 			fprintf(stderr, "Error: %s\n", SDL_GetError());
@@ -63,6 +86,7 @@ int SDLCALL present(void* data) {
 			SDL_AtomicSet(&quit_now, 1);
 			break;
 		}
+		const uint64_t sleep_point = nanotime_now();
 		if (SDL_AtomicGet(&quit_now)) {
 			break;
 		}
@@ -71,20 +95,8 @@ int SDLCALL present(void* data) {
 		shared_data_struct* const current = SDL_AtomicGetPtr((void**)&shared_current);
 		SDL_AtomicSet(&current->in_use, 1);
 
-#ifdef NDEBUG
-		const int display_index = SDL_GetWindowDisplayIndex(window);
-		if (display_index < 0) {
-			fprintf(stderr, "Error: %s\n", SDL_GetError());
-			fflush(stderr);
-			status = 0;
-			SDL_AtomicSet(&current->in_use, 0);
-			SDL_AtomicSet(&quit_now, 1);
-			break;
-		}
-		SDL_DisplayMode display_mode;
-		if (SDL_GetDesktopDisplayMode(display_index, &display_mode) < 0) {
-			fprintf(stderr, "Error: %s\n", SDL_GetError());
-			fflush(stderr);
+		int refresh_rate = refresh_rate_get(window);
+		if (refresh_rate < 0) {
 			status = 0;
 			SDL_AtomicSet(&current->in_use, 0);
 			SDL_AtomicSet(&quit_now, 1);
@@ -92,37 +104,33 @@ int SDLCALL present(void* data) {
 		}
 
 		// TODO: Implement configuration option for setting the game's frame rate.
-		const uint64_t present_frame = NANOTIME_NSEC_PER_SEC / display_mode.refresh_rate;
-
-		const uint64_t next_point = nanotime_now();
-		if (next_point - present_point >= present_frame) {
-#endif
-			if (!inited && !(inited = present_init())) {
-				status = 0;
-				SDL_AtomicSet(&current->in_use, 0);
-				SDL_AtomicSet(&quit_now, 1);
-				break;
-			}
-			if (!commands_flush(current->commands)) {
-				status = 0;
-				SDL_AtomicSet(&current->in_use, 0);
-				SDL_AtomicSet(&quit_now, 1);
-				break;
-			}
-			SDL_GL_SwapWindow(window);
-#ifdef NDEBUG
-			present_point = next_point;
+		const uint64_t present_frame = refresh_rate > 0 ? NANOTIME_NSEC_PER_SEC / refresh_rate : NANOTIME_NSEC_PER_SEC / 60;
+		if (present_frame != stepper.sleep_duration) {
+			stepper.sleep_duration = present_frame;
+			stepper.overhead_duration = 0u;
+			stepper.sleep_point = sleep_point;
 		}
-		else if (!commands_empty(current->commands)) {
+
+		if (!inited && !(inited = present_init())) {
 			status = 0;
 			SDL_AtomicSet(&current->in_use, 0);
 			SDL_AtomicSet(&quit_now, 1);
 			break;
 		}
-#endif
+		if (!commands_flush(current->commands)) {
+			status = 0;
+			SDL_AtomicSet(&current->in_use, 0);
+			SDL_AtomicSet(&quit_now, 1);
+			break;
+		}
+		SDL_GL_SwapWindow(window);
 
 		// MEMREL: shared_data[i].in_use
 		SDL_AtomicSet(&current->in_use, 0);
+
+#ifdef NDEBUG
+		nanotime_step(&stepper);
+#endif
 	}
 
 	present_deinit();
@@ -204,8 +212,16 @@ int main(int argc, char** argv) {
 			const bool break_now = &shared_data[i] != current && !SDL_AtomicGet(&shared_data[i].in_use);
 			SDL_MemoryBarrierAcquire();
 			if (break_now) {
+				if (!commands_empty(shared_data[i].commands)) {
+					fprintf(stderr, "Error: Failed to empty render command queue\n");
+					fflush(stderr);
+					exit_code = EXIT_FAILURE;
+				}
 				break;
 			}
+		}
+		if (exit_code == EXIT_FAILURE) {
+			break;
 		}
 
 		if (!game_update(shared_data[i].commands)) {
