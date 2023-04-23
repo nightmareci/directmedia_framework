@@ -23,10 +23,10 @@
  */
 
 #include "framework/app.h"
-#include "game/game.h"
-#include "game/present.h"
+#include "framework/render.h"
 #include "framework/nanotime.h"
 #include "framework/defs.h"
+#include "game/game.h"
 #include "SDL.h"
 #include <stdlib.h>
 #include <inttypes.h>
@@ -111,7 +111,7 @@ int SDLCALL present(void* data) {
 			stepper.sleep_point = sleep_point;
 		}
 
-		if (!inited && !(inited = present_init())) {
+		if (!inited && !(inited = render_init())) {
 			status = 0;
 			SDL_AtomicSet(&current->in_use, 0);
 			SDL_AtomicSet(&quit_now, 1);
@@ -133,7 +133,7 @@ int SDLCALL present(void* data) {
 #endif
 	}
 
-	present_deinit();
+	render_deinit();
 	app_context_destroy(context);
 
 	return status;
@@ -184,7 +184,8 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
-	if (!game_init()) {
+	uint64_t tick_rate;
+	if (!game_init(&tick_rate)) {
 		fflush(stderr);
 		SDL_AtomicSet(&quit_now, 1);
 		SDL_WaitThread(present_thread, NULL);
@@ -194,7 +195,7 @@ int main(int argc, char** argv) {
 	}
 
 	nanotime_step_data stepper;
-	nanotime_step_init(&stepper, NANOTIME_NSEC_PER_SEC / TICK_RATE, nanotime_now, nanotime_sleep);
+	nanotime_step_init(&stepper, NANOTIME_NSEC_PER_SEC / tick_rate, nanotime_now, nanotime_sleep);
 
 	while (SDL_PumpEvents(), SDL_FilterEvents(event_filter, NULL), !SDL_AtomicGet(&quit_now)) {
 		shared_data_struct* const current = SDL_AtomicGetPtr((void**)&shared_current);

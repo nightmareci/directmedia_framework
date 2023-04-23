@@ -22,8 +22,7 @@
  * SOFTWARE.
  */
 
-#include "game/present.h"
-#include "game/game.h"
+#include "framework/render.h"
 #include "framework/app.h"
 #include "framework/file.h"
 #include "framework/print.h"
@@ -34,15 +33,23 @@
 #include <stdarg.h>
 #include <assert.h>
 
-static file_cache_struct* present_cache;
+static file_cache_struct* file_cache;
 static print_data_struct* print_data;
 
 static bool clear_operation(void* const input) {
-	const uintptr_t ticks = (uintptr_t)input;
-	const float shade = sinf(M_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f;
+	const float shade = (uint8_t)(uintptr_t)input / 255.0f;
 	glClearColor(shade, shade, shade, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	return true;
+}
+
+bool render_clear(commands_struct* const commands, const uint8_t shade) {
+	return commands_enqueue(commands, (void*)(uintptr_t)shade, clear_operation, NULL);
+}
+
+bool render_sprites(commands_struct* const commands, const char* const image, const render_sprite_struct* const sprites) {
+	// TODO
 	return true;
 }
 
@@ -55,7 +62,7 @@ typedef struct print_struct {
 
 static bool print_operation(void* const input) {
 	print_struct* const p = input;
-	const file_struct* const file = file_cache_get(present_cache, FILE_TYPE_FONT, FILE_PATH_ASSET, p->font, NULL, false);
+	const file_struct* const file = file_cache_get(file_cache, FILE_TYPE_FONT, FILE_PATH_ASSET, p->font, NULL, false);
 	if (file == NULL) {
 		return false;
 	}
@@ -75,11 +82,7 @@ static void print_destroy(void* const input) {
 	free(p);
 }
 
-bool present_clear(commands_struct* const commands, uint64_t ticks) {
-	return commands_enqueue(commands, (void*)(uintptr_t)ticks, clear_operation, NULL);
-}
-
-bool present_print(commands_struct* const commands, const float x, const float y, const char* const font, const char* const format, ...) {
+bool render_print(commands_struct* const commands, const char* const font, const float x, const float y, const char* const format, ...) {
 	print_struct* const p = malloc(sizeof(print_struct));
 	if (p == NULL) {
 		return false;
@@ -106,7 +109,7 @@ bool present_print(commands_struct* const commands, const float x, const float y
 	return true;
 }
 
-bool present_init() {
+bool render_init() {
 	if (!print_init()) {
 		return false;
 	}
@@ -115,8 +118,8 @@ bool present_init() {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_CULL_FACE);
 
-	present_cache = file_cache_create(app_asset_path_get(), app_save_path_get());
-	if (present_cache == NULL) {
+	file_cache = file_cache_create(app_asset_path_get(), app_save_path_get());
+	if (file_cache == NULL) {
 		return false;
 	}
 
@@ -128,17 +131,17 @@ bool present_init() {
 	return true;
 }
 
-void present_deinit() {
+void render_deinit() {
 	if (print_data != NULL) {
 		print_data_destroy(print_data);
 	}
 
-	if (present_cache != NULL) {
-		file_cache_destroy(present_cache);
+	if (file_cache != NULL) {
+		file_cache_destroy(file_cache);
 	}
 
 	print_deinit();
 
 	print_data = NULL;
-	present_cache = NULL;
+	file_cache = NULL;
 }

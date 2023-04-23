@@ -24,10 +24,9 @@
  */
 
 #include "framework/commands.h"
+#include <stdint.h>
 #include <stdbool.h>
 
-#define TICK_RATE 300u
-
-bool game_init();
+bool game_init(uint64_t* const tick_rate);
 bool game_update(commands_struct* const commands);
 void game_deinit();

@@ -27,8 +27,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-bool present_clear(commands_struct* const commands, uint64_t ticks);
-bool present_print(commands_struct* const commands, const float x, const float y, const char* const font, const char* const format, ...);
+typedef struct render_rect_struct {
+	float x, y;
+	float w, h;
+} render_rect_struct;
 
-bool present_init();
-void present_deinit();
+typedef struct render_sprite_struct {
+	render_rect_struct src;
+	render_rect_struct dst;
+} render_sprite_struct;
+
+bool render_clear(commands_struct* const commands, const uint8_t shade);
+
+bool render_sprites(commands_struct* const commands, const char* const image, const render_sprite_struct* const sprites);
+
+bool render_print(commands_struct* const commands, const char* const font, const float x, const float y, const char* const format, ...);
+
+bool render_init();
+void render_deinit();

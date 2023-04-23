@@ -72,6 +72,7 @@ add_executable("${EXE}"
 	"${SRC}/src/framework/opengl_util.c"
 	"${SRC}/src/framework/print.c"
 	"${SRC}/src/framework/queue.c"
+	"${SRC}/src/framework/render.c"
 	"${SRC}/src/framework/string_util.c"
 
 	"${SRC}/src/framework/lua/lapi.c"
@@ -108,7 +109,6 @@ add_executable("${EXE}"
 	"${SRC}/src/framework/lua/lzio.c"
 
 	"${SRC}/src/game/game.c"
-	"${SRC}/src/game/present.c"
 )
 
 target_include_directories("${EXE}" PRIVATE "${SRC}/src" "${BIN}/src")
@@ -154,7 +154,7 @@ if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
 	add_compile_definitions(BUILD_TARGET_WINDOWS_MSVC)
 
 	option(HIDE_WINDOWS_CONSOLE "Hide the Windows console")
-	
+
 	target_link_options("${EXE}"
 		PRIVATE
 			$<$<BOOL:${HIDE_WINDOWS_CONSOLE}>:
@@ -162,7 +162,7 @@ if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
 				/SUBSYSTEM:WINDOWS
 			>
 	)
-	
+
 	install(TARGETS "${EXE}" DESTINATION ".")
 	if(BUNDLE_LIBRARIES)
 		install_runtime_dependencies("${EXE}")
