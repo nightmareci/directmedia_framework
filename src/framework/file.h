@@ -28,10 +28,10 @@
  */
 
 #include "framework/file_blob.h"
-#include "framework/file_chunk.h"
-#include "framework/file_font.h"
-#include "framework/file_music.h"
 #include "framework/file_surface.h"
+#include "framework/file_font.h"
+#include "framework/file_chunk.h"
+#include "framework/file_music.h"
 #include "SDL_mixer.h"
 #include <stddef.h>
 #include <stdbool.h>

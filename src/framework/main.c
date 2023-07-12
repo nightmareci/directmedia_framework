@@ -23,7 +23,6 @@
  */
 
 #include "framework/app.h"
-#include "framework/render.h"
 #include "framework/nanotime.h"
 #include "framework/defs.h"
 #include "game/game.h"
@@ -32,18 +31,10 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
-static SDL_atomic_t quit_now;
+static bool quit_now;
 
-typedef struct shared_data_struct {
-	SDL_atomic_t in_use;
-	commands_struct* commands;
-} shared_data_struct;
-
-static shared_data_struct shared_data[3];
-static SDL_sem* present_sem = NULL;
-static shared_data_struct* shared_current = NULL;
-
-int refresh_rate_get(SDL_Window* const window) {
+static int refresh_rate_get() {
+	SDL_Window* const window = app_window_get();
 	const int display_index = SDL_GetWindowDisplayIndex(window);
 	if (display_index < 0) {
 		fprintf(stderr, "Error: %s\n", SDL_GetError());
@@ -59,187 +50,95 @@ int refresh_rate_get(SDL_Window* const window) {
 	return display_mode.refresh_rate;
 }
 
-int SDLCALL present(void* data) {
-	bool inited = false;
-	int status = 1;
-	SDL_Window* const window = app_window_get();
-	SDL_GLContext const context = app_context_create();
-
-	if (context == NULL) {
-		SDL_AtomicSet(&quit_now, 1);
-		return 0;
-	}
-
-	nanotime_step_data stepper;
-	int refresh_rate = refresh_rate_get(window);
-	if (refresh_rate < 0) {
-		SDL_AtomicSet(&quit_now, 1);
-		return 0;
-	}
-
-	nanotime_step_init(&stepper, refresh_rate > 0 ? NANOTIME_NSEC_PER_SEC / refresh_rate : NANOTIME_NSEC_PER_SEC / 60, nanotime_now, nanotime_sleep);
-	while (true) {
-		if (SDL_SemWait(present_sem) < 0) {
-			fprintf(stderr, "Error: %s\n", SDL_GetError());
-			fflush(stderr);
-			status = 0;
-			SDL_AtomicSet(&quit_now, 1);
-			break;
-		}
-		const uint64_t sleep_point = nanotime_now();
-		if (SDL_AtomicGet(&quit_now)) {
-			break;
-		}
-
-		// MEMACQ: shared_current
-		shared_data_struct* const current = SDL_AtomicGetPtr((void**)&shared_current);
-		SDL_AtomicSet(&current->in_use, 1);
-
-		int refresh_rate = refresh_rate_get(window);
-		if (refresh_rate < 0) {
-			status = 0;
-			SDL_AtomicSet(&current->in_use, 0);
-			SDL_AtomicSet(&quit_now, 1);
-			break;
-		}
-
-		// TODO: Implement configuration option for setting the game's frame rate.
-		const uint64_t present_frame = refresh_rate > 0 ? NANOTIME_NSEC_PER_SEC / refresh_rate : NANOTIME_NSEC_PER_SEC / 60;
-		if (present_frame != stepper.sleep_duration) {
-			stepper.sleep_duration = present_frame;
-			stepper.overhead_duration = 0u;
-			stepper.sleep_point = sleep_point;
-		}
-
-		if (!inited && !(inited = render_init())) {
-			status = 0;
-			SDL_AtomicSet(&current->in_use, 0);
-			SDL_AtomicSet(&quit_now, 1);
-			break;
-		}
-		if (!commands_flush(current->commands)) {
-			status = 0;
-			SDL_AtomicSet(&current->in_use, 0);
-			SDL_AtomicSet(&quit_now, 1);
-			break;
-		}
-		SDL_GL_SwapWindow(window);
-
-		// MEMREL: shared_data[i].in_use
-		SDL_AtomicSet(&current->in_use, 0);
-
-#ifdef NDEBUG
-		nanotime_step(&stepper);
-#endif
-	}
-
-	render_deinit();
-	app_context_destroy(context);
-
-	return status;
-}
-
-int SDLCALL event_filter(void* userdata, SDL_Event* event) {
+static int SDLCALL event_filter(void* userdata, SDL_Event* event) {
 	if (event->type == SDL_QUIT) {
-		SDL_AtomicSet(&quit_now, 1);
+		quit_now = true;
 	}
 	return 1;
 }
 
 int main(int argc, char** argv) {
+	int exit_code = EXIT_SUCCESS;
+
 	if (!app_init(argc, argv)) {
 		return EXIT_FAILURE;
 	}
-
-	int exit_code = EXIT_SUCCESS;
-
-	SDL_AtomicSet(&quit_now, 0);
-
-	for (size_t i = 0u; i < lengthof(shared_data); i++) {
-		SDL_AtomicSet(&shared_data[i].in_use, 0);
-		if ((shared_data[i].commands = commands_create()) == NULL) {
-			for (size_t j = 0u; j < i; j++) {
-				commands_destroy(shared_data[j].commands);
-			}
-			return EXIT_FAILURE;
-		}
-	}
-
-	present_sem = SDL_CreateSemaphore(0u);
-	if (present_sem == NULL) {
-		fprintf(stderr, "Error: %s\n", SDL_GetError());
-		fflush(stderr);
+	
+	SDL_GLContext context = app_context_create();
+	if (context == NULL) {
 		app_deinit();
 		return EXIT_FAILURE;
 	}
 
-	shared_current = NULL;
+	frames_status_enum frames_status;
+	frames_struct* const frames = frames_create();
+	if (frames == NULL) {
+		app_context_destroy(context);
+		app_deinit();
+		return EXIT_FAILURE;
+	}
 
-	SDL_Thread* const present_thread = SDL_CreateThread(&present, "present_thread", NULL);
-	if (present_thread == NULL) {
-		fprintf(stderr, "Error: %s\n", SDL_GetError());
-		fflush(stderr);
-		SDL_DestroySemaphore(present_sem);
+	frames_status = frames_start(frames);
+	if (frames_status == FRAMES_STATUS_ERROR) {
+		if (!frames_destroy(frames)) {
+			fprintf(stderr, "Failed destroying the frames object\n");
+			fflush(stderr);
+		}
+		app_context_destroy(context);
 		app_deinit();
 		return EXIT_FAILURE;
 	}
 
 	uint64_t tick_rate;
-	if (!game_init(&tick_rate)) {
+	if (!game_init(frames, &tick_rate)) {
 		fflush(stderr);
-		SDL_AtomicSet(&quit_now, 1);
-		SDL_WaitThread(present_thread, NULL);
-		SDL_DestroySemaphore(present_sem);
+		frames_destroy(frames);
+		app_context_destroy(context);
 		app_deinit();
 		return EXIT_FAILURE;
 	}
+	
+	frames_end(frames);
 
 	nanotime_step_data stepper;
-	nanotime_step_init(&stepper, NANOTIME_NSEC_PER_SEC / tick_rate, nanotime_now, nanotime_sleep);
-
-	while (SDL_PumpEvents(), SDL_FilterEvents(event_filter, NULL), !SDL_AtomicGet(&quit_now)) {
-		shared_data_struct* const current = SDL_AtomicGetPtr((void**)&shared_current);
-
-		size_t i;
-		for (i = 0u; i < lengthof(shared_data); i++) {
-			/*
-			 * shared_data must contain at least three elements, because:
-			 * 1. If shared_current == &shared_data[i], it's either the next to be used and isn't in use, or is currently in use; always use a shared_data element not equal to shared_current.
-			 * 2. If shared_current != &shared_data[i], it's not the next to be used, but might be in use; always use a shared_data element that's not in use.
-			 * At least one of the three elements is always guaranteed to not be in shared_current nor in use, because at most two elements are unavailable for a logic update.
-			 * The acquisition memory barrier is here to be sure the selected command queue is no longer in use by the present thread when the game update begins.
-			 */
-			// MEMACQ: shared_data[i].in_use
-			const bool break_now = &shared_data[i] != current && !SDL_AtomicGet(&shared_data[i].in_use);
-			SDL_MemoryBarrierAcquire();
-			if (break_now) {
-				if (!commands_empty(shared_data[i].commands)) {
-					fprintf(stderr, "Error: Failed to empty render command queue\n");
-					fflush(stderr);
-					exit_code = EXIT_FAILURE;
-				}
-				break;
-			}
-		}
-		if (exit_code == EXIT_FAILURE) {
+	nanotime_step_init(&stepper, NANOTIME_NSEC_PER_SEC / tick_rate, nanotime_now_max(), nanotime_now, nanotime_sleep);
+	uint64_t last_render = nanotime_now();
+	
+	quit_now = false;
+	while (SDL_PumpEvents(), SDL_FilterEvents(event_filter, NULL), !quit_now) {
+		frames_status = frames_start(frames);
+		if (frames_status == FRAMES_STATUS_ERROR) {
+			exit_code = EXIT_FAILURE;
 			break;
 		}
 
-		if (!game_update(shared_data[i].commands)) {
+		if (!game_update(frames)) {
 			fflush(stdout);
 			exit_code = EXIT_FAILURE;
 			break;
 		}
 		fflush(stdout);
+		
+		frames_end(frames);
 
-		// MEMREL: shared_current
-		SDL_AtomicSetPtr((void**)&shared_current, &shared_data[i]);
-
-		if (SDL_SemValue(present_sem) == 0u && SDL_SemPost(present_sem) < 0) {
-			fprintf(stderr, "Error: Failed to post the shared present data semaphore\n");
-			fflush(stderr);
+		int refresh_rate = refresh_rate_get();
+		if (refresh_rate < 0) {
 			exit_code = EXIT_FAILURE;
 			break;
+		}
+		if (refresh_rate == 0) {
+			refresh_rate = 60;
+		}
+		
+		const uint64_t frame_duration = NANOTIME_NSEC_PER_SEC / refresh_rate;
+		const uint64_t now = nanotime_now();
+		if (now >= last_render + frame_duration) {
+			frames_status = frames_draw_latest(frames);
+			if (frames_status == FRAMES_STATUS_ERROR) {
+				exit_code = EXIT_FAILURE;
+				break;
+			}
+			last_render = now + frame_duration;
 		}
 
 		static uint64_t skips = 0u;
@@ -250,24 +149,19 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	SDL_AtomicSet(&quit_now, 1);
-
-	game_deinit();
-
-	if (SDL_SemPost(present_sem) < 0) {
-		fprintf(stderr, "Error: %s\n", SDL_GetError());
+	frames_status = frames_start(frames);
+	if (frames_status != FRAMES_STATUS_ERROR) {
+		if (!game_deinit(frames)) {
+			fprintf(stderr, "Error deinitializing the game\n");
+			fflush(stderr);
+		}
+		frames_end(frames);
+	}
+	if (!frames_destroy(frames)) {
+		fprintf(stderr, "Error destroying the frames object\n");
 		fflush(stderr);
-		exit_code = EXIT_FAILURE;
 	}
-
-	int status;
-	SDL_WaitThread(present_thread, &status);
-	if (status == 0) {
-		exit_code = EXIT_FAILURE;
-	}
-
-	SDL_DestroySemaphore(present_sem);
-
+	app_context_destroy(context);
 	app_deinit();
 	return exit_code;
 }

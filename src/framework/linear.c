@@ -159,7 +159,7 @@ void mat4_frustum(mat4 dst, const float left, const float right, const float bot
 
 void mat4_perspective(mat4 dst, const float fovy, const float aspect, const float near, const float far) {
 	const float half_fovy = TORADIANS(fovy) / 2.0f;
-	const float top = near * tan(half_fovy);
+	const float top = near * tanf(half_fovy);
 	const float bottom = -top;
 	const float right = top * aspect;
 	const float left = -right;

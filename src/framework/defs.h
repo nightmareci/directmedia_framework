@@ -23,14 +23,7 @@
  * SOFTWARE.
  */
 
-#include "SDL_mutex.h"
-#include "SDL_atomic.h"
 #include <math.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <limits.h>
-#include <assert.h>
 
 #define lengthof(array) (sizeof((array)) / sizeof(*(array)))
 

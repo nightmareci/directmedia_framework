@@ -23,10 +23,10 @@
  * SOFTWARE.
  */
 
-#include "framework/commands.h"
+#include "framework/frames.h"
 #include <stdint.h>
 #include <stdbool.h>
 
-bool game_init(uint64_t* const tick_rate);
-bool game_update(commands_struct* const commands);
-void game_deinit();
+bool game_init(frames_struct* const frames, uint64_t* const tick_rate);
+bool game_update(frames_struct* const frames);
+bool game_deinit(frames_struct* const frames);

@@ -36,33 +36,38 @@
 static file_cache_struct* file_cache;
 static print_data_struct* print_data;
 
-static bool clear_operation(void* const input) {
-	const float shade = (uint8_t)(uintptr_t)input / 255.0f;
+static bool clear_draw_func(void* const state) {
+	const float shade = (uint8_t)(uintptr_t)state / 255.0f;
 	glClearColor(shade, shade, shade, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	return true;
 }
 
-bool render_clear(commands_struct* const commands, const uint8_t shade) {
-	return commands_enqueue(commands, (void*)(uintptr_t)shade, clear_operation, NULL);
+bool render_clear(frames_struct* const frames, const uint8_t shade) {
+	static const command_funcs_struct funcs = {
+		.update = NULL,
+		.draw = clear_draw_func,
+		.destroy = NULL
+	};
+	return frames_enqueue_command(frames, &funcs, (void*)(uintptr_t)shade);
 }
 
-bool render_sprites(commands_struct* const commands, const char* const image, const render_sprite_struct* const sprites) {
+bool render_sprites(frames_struct* const frames, const char* const image_filename, const render_sprite_struct* const sprites) {
 	// TODO
 	return true;
 }
 
 typedef struct print_struct {
-	const char* font;
+	const char* font_filename;
 	float x;
 	float y;
 	char* text;
 } print_struct;
 
-static bool print_operation(void* const input) {
-	print_struct* const p = input;
-	const file_struct* const file = file_cache_get(file_cache, FILE_TYPE_FONT, FILE_PATH_ASSET, p->font, NULL, false);
+static bool print_draw_func(void* const state) {
+	print_struct* const p = state;
+	const file_struct* const file = file_cache_get(file_cache, FILE_TYPE_FONT, FILE_PATH_ASSET, p->font_filename, NULL, false);
 	if (file == NULL) {
 		return false;
 	}
@@ -76,19 +81,19 @@ static bool print_operation(void* const input) {
 	return print_draw(print_data, 640.0f, 480.0f);
 }
 
-static void print_destroy(void* const input) {
-	print_struct* const p = input;
+static void print_destroy(void* const state) {
+	print_struct* const p = state;
 	free((char*)p->text);
 	free(p);
 }
 
-bool render_print(commands_struct* const commands, const char* const font, const float x, const float y, const char* const format, ...) {
+bool render_print(frames_struct* const frames, const char* const font_filename, const float x, const float y, const char* const format, ...) {
 	print_struct* const p = malloc(sizeof(print_struct));
 	if (p == NULL) {
 		return false;
 	}
 
-	p->font = font;
+	p->font_filename = font_filename;
 	p->x = x;
 	p->y = y;
 	va_list args;
@@ -99,8 +104,13 @@ bool render_print(commands_struct* const commands, const char* const font, const
 		free(p);
 		return false;
 	}
-
-	if (!commands_enqueue(commands, p, print_operation, print_destroy)) {
+	
+	static const command_funcs_struct funcs = {
+		.update = NULL,
+		.draw = print_draw_func,
+		.destroy = print_destroy
+	};
+	if (!frames_enqueue_command(frames, &funcs, p)) {
 		free((char*)p->text);
 		free(p);
 		return false;
@@ -109,7 +119,7 @@ bool render_print(commands_struct* const commands, const char* const font, const
 	return true;
 }
 
-bool render_init() {
+bool init_update_func(void* const state) {
 	if (!print_init()) {
 		return false;
 	}
@@ -131,7 +141,16 @@ bool render_init() {
 	return true;
 }
 
-void render_deinit() {
+bool render_init(frames_struct* const frames) {
+	static const command_funcs_struct funcs = {
+		.update = init_update_func,
+		.draw = NULL,
+		.destroy = NULL
+	};
+	return frames_enqueue_command(frames, &funcs, NULL);
+}
+
+static void deinit_destroy_func(void* const state) {
 	if (print_data != NULL) {
 		print_data_destroy(print_data);
 	}
@@ -144,4 +163,13 @@ void render_deinit() {
 
 	print_data = NULL;
 	file_cache = NULL;
+}
+
+bool render_deinit(frames_struct* const frames) {
+	static const command_funcs_struct funcs = {
+		.update = NULL,
+		.draw = NULL,
+		.destroy = deinit_destroy_func
+	};
+	return frames_enqueue_command(frames, &funcs, NULL);
 }

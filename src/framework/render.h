@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "framework/commands.h"
+#include "framework/frames.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -37,11 +37,12 @@ typedef struct render_sprite_struct {
 	render_rect_struct dst;
 } render_sprite_struct;
 
-bool render_clear(commands_struct* const commands, const uint8_t shade);
+bool render_init(frames_struct* const frames);
 
-bool render_sprites(commands_struct* const commands, const char* const image, const render_sprite_struct* const sprites);
+bool render_deinit(frames_struct* const frames);
 
-bool render_print(commands_struct* const commands, const char* const font, const float x, const float y, const char* const format, ...);
+bool render_clear(frames_struct* const frames, const uint8_t shade);
 
-bool render_init();
-void render_deinit();
+bool render_sprites(frames_struct* const frames, const char* const image_filename, const render_sprite_struct* const sprites);
+
+bool render_print(frames_struct* const frames, const char* const font, const float x, const float y, const char* const format, ...);

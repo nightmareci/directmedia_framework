@@ -25,23 +25,37 @@
 
 #include <stdbool.h>
 
-typedef struct commands_struct commands_struct;
+typedef struct frames_struct frames_struct;
 
-typedef bool (* commands_canfail_func)(void* const input);
+typedef bool (* command_update_func)(void* const state);
+typedef bool (* command_draw_func)(void* const state);
+typedef void (* command_destroy_func)(void* const state);
 
-typedef void (* commands_nofail_func)(void* const input);
+typedef struct command_funcs_struct {
+	command_update_func update;
+	command_draw_func draw;
+	command_destroy_func destroy;
+} command_funcs_struct;
 
-commands_struct* commands_create();
+typedef enum frames_status_enum {
+	FRAMES_STATUS_SUCCESS,
+	FRAMES_STATUS_NO_START,
+	FRAMES_STATUS_NO_END,
+	FRAMES_STATUS_ERROR
+} frames_status_enum;
 
-bool commands_destroy(commands_struct* const commands);
+frames_struct* frames_create();
 
-bool commands_enqueue(
-	commands_struct* const commands,
-	void* const input,
-	commands_canfail_func const operation,
-	commands_nofail_func const destroy
+bool frames_destroy(frames_struct* const frames);
+
+frames_status_enum frames_start(frames_struct* const frames);
+
+void frames_end(frames_struct* const frames);
+
+bool frames_enqueue_command(
+	frames_struct* const frames,
+	const command_funcs_struct* const funcs,
+	void* const state
 );
 
-bool commands_flush(commands_struct* const commands);
-
-bool commands_empty(commands_struct* const commands);
+frames_status_enum frames_draw_latest(frames_struct* const frames);
