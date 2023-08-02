@@ -26,6 +26,7 @@
 #include "framework/nanotime.h"
 #include "framework/defs.h"
 #include "framework/render.h"
+#include "framework/lua/lauxlib.h"
 #include "game/game.h"
 #include "SDL.h"
 #include <stdlib.h>
@@ -61,12 +62,16 @@ int main(int argc, char** argv) {
 	int exit_code = EXIT_SUCCESS;
 
 	if (!app_init(argc, argv)) {
+		fflush(stdout);
+		fflush(stderr);
 		return EXIT_FAILURE;
 	}
 
 	SDL_GLContext context = app_context_create();
 	if (context == NULL) {
 		app_deinit();
+		fflush(stdout);
+		fflush(stderr);
 		return EXIT_FAILURE;
 	}
 
@@ -75,23 +80,47 @@ int main(int argc, char** argv) {
 	if (frames == NULL) {
 		app_context_destroy(context);
 		app_deinit();
+		fflush(stdout);
+		fflush(stderr);
 		return EXIT_FAILURE;
 	}
 
 	if (!render_init(frames)) {
+		frames_destroy(frames);
 		app_context_destroy(context);
 		app_deinit();
+		fflush(stdout);
+		fflush(stderr);
 		return EXIT_FAILURE;
 	}
 
 	uint64_t tick_rate;
 	if (!game_init(&tick_rate)) {
-		fflush(stderr);
-		frames_destroy(frames);
 		render_deinit();
+		frames_destroy(frames);
 		app_context_destroy(context);
 		app_deinit();
+		fflush(stdout);
+		fflush(stderr);
 		return EXIT_FAILURE;
+	}
+
+	// TODO: Implement Lua scripting support for game code. For now, this
+	// just tests that the Lua library is available and working.
+	{
+		lua_State* const lua_state = luaL_newstate();
+		if (lua_state != NULL) {
+			lua_close(lua_state);
+		}
+		else {
+			render_deinit();
+			frames_destroy(frames);
+			app_context_destroy(context);
+			app_deinit();
+			fflush(stdout);
+			fflush(stderr);
+			return EXIT_FAILURE;
+		}
 	}
 
 	bool first_render = true;
@@ -108,7 +137,6 @@ int main(int argc, char** argv) {
 		}
 
 		if (!game_update(&quit_now)) {
-			fflush(stdout);
 			exit_code = EXIT_FAILURE;
 			break;
 		}
@@ -148,9 +176,10 @@ int main(int argc, char** argv) {
 	render_deinit();
 	if (!frames_destroy(frames)) {
 		fprintf(stderr, "Error destroying the frames object\n");
-		fflush(stderr);
 	}
 	app_context_destroy(context);
 	app_deinit();
+	fflush(stdout);
+	fflush(stderr);
 	return exit_code;
 }
