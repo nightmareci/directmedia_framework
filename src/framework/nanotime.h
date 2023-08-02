@@ -148,35 +148,16 @@ extern void (* const nanotime_yield)();
  */
 uint64_t nanotime_interval(const uint64_t start, const uint64_t end, const uint64_t max);
 
-// TODO: Implement big sleeps for Linux. It seems on x86_64 AMD Ryzen 5950X
-// GNU/Linux Manjaro Linux the sleep overhead is a roughly constant small
-// amount of time beyond the requested time; also, sleep requests shorter than
-// that overhead seem to always sleep for the overhead amount. And
-// test/implement for the other configurations I have:
-// vita
-// miyoo mini
-// x86_64 mac vm
-// arm64 raspberry pi os raspi 3
-// arm64 linux (TODO : Distro here) in utm/asi mac
-// asahi linux
-// x86_64 ubuntu intel dell
-// x64 windows 7 diy intel
-#define TEST_BIG_SLEEP
-
 typedef struct nanotime_step_data {
 	uint64_t sleep_duration;
 	uint64_t now_max;
 	uint64_t (* now)();
 	void (* sleep)(uint64_t nsec_count);
 	
-#ifdef TEST_BIG_SLEEP
-#if defined(__linux__)
-	uint64_t backoff;
-#elif defined(__APPLE__)
+#ifdef __APPLE__
 	uint64_t overhead_numer;
 	uint64_t overhead_denom;
 	uint64_t backoff;
-#endif
 #endif
 	uint64_t zero_sleep_duration;
 	uint64_t accumulator;
@@ -535,25 +516,13 @@ void nanotime_step_init(nanotime_step_data* const stepper, const uint64_t sleep_
 	stepper->now = now;
 	stepper->sleep = sleep;
 	
-	uint64_t start = now();
-	sleep(UINT64_C(0));
+	const uint64_t start = now();
+	nanotime_sleep(UINT64_C(0));
 	stepper->zero_sleep_duration = nanotime_interval(start, now(), now_max);
-#ifdef TEST_BIG_SLEEP
-#if defined(__linux__)
-	// It seems that in testing on some different Linux configurations,
-	// actual sleep duration tends to be the amount requested plus a
-	// relatively fixed small duration. Since it's basically guaranteed a
-	// Linux system supports millisecond-precision sleeps, a 1 millisecond
-	// sleep request is a good choice for getting an initial estimate for
-	// the backoff amount.
-	start = now();
-	sleep(NANOTIME_NSEC_PER_SEC / UINT64_C(1000));
-	stepper->backoff = nanotime_interval(start, now(), now_max) - (NANOTIME_NSEC_PER_SEC / UINT64_C(1000));
-#elif defined(__APPLE__)
+#ifdef __APPLE__
 	stepper->overhead_numer = UINT64_C(1);
 	stepper->overhead_denom = UINT64_C(1);
 	stepper->backoff = UINT64_C(0);
-#endif
 #endif
 	stepper->accumulator = UINT64_C(0);
 	
@@ -562,8 +531,6 @@ void nanotime_step_init(nanotime_step_data* const stepper, const uint64_t sleep_
 	stepper->sleep_point = now();
 }
 
-#include <stdio.h>
-#include <inttypes.h>
 bool nanotime_step(nanotime_step_data* const stepper) {
 	assert(stepper != NULL);
 	
@@ -573,30 +540,7 @@ bool nanotime_step(nanotime_step_data* const stepper) {
 		uint64_t current_sleep_duration = total_sleep_duration;
 		const uint64_t shift = UINT64_C(4);
 		
-#ifdef TEST_BIG_SLEEP
-#if defined(__linux__)
-		uint64_t overhead_sleep_duration = current_sleep_duration;
-		if (overhead_sleep_duration > stepper->backoff) {
-			overhead_sleep_duration -= stepper->backoff;
-		}
-		else {
-			stepper->backoff = UINT64_C(0);
-		}
-		const uint64_t overhead_start = stepper->now();
-		stepper->sleep(overhead_sleep_duration);
-		const uint64_t big_sleep_duration = nanotime_interval(overhead_start, stepper->now(), stepper->now_max);
-		const uint64_t slept_so_far = nanotime_interval(stepper->sleep_point, stepper->now(), stepper->now_max);
-		//printf("slept_so_far == %" PRIu64 " ns\n", slept_so_far);
-		//printf("backoff == %" PRIu64 " ns\n", stepper->backoff);
-		if (slept_so_far <= total_sleep_duration) {
-			//stepper->backoff = big_sleep_duration - overhead_sleep_duration;
-			current_sleep_duration -= slept_so_far;
-		}
-		else {
-			stepper->backoff += (big_sleep_duration - overhead_sleep_duration) * 4;
-			goto step_end;
-		}
-#elif defined(__APPLE__)
+#ifdef __APPLE__
 		// Start with a big sleep. This helps reduce CPU/power use vs. many
 		// shorter sleeps. Shorter sleeps are still done below, but this reduces
 		// the number of shorter sleeps. It appears that the actually-slept
@@ -651,7 +595,6 @@ bool nanotime_step(nanotime_step_data* const stepper) {
 			goto step_end;
 		}
 #endif
-#endif
 		
 		// This has the flavor of Zeno's dichotomous paradox of motion, as it
 		// successively divides the time remaining to sleep, but attempts to
@@ -700,7 +643,7 @@ bool nanotime_step(nanotime_step_data* const stepper) {
 			}
 		}
 		
-#if defined(TEST_BIG_SLEEP) || defined(__linux__) || defined(__APPLE__)
+#ifdef __APPLE__
 	step_end:
 #endif
 	{

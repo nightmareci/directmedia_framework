@@ -39,10 +39,10 @@ typedef struct render_sprite_struct {
 
 bool render_init(frames_struct* const frames);
 
-bool render_deinit(frames_struct* const frames);
+void render_deinit();
 
-bool render_clear(frames_struct* const frames, const uint8_t shade);
+bool render_clear(const uint8_t shade);
 
-bool render_sprites(frames_struct* const frames, const char* const image_filename, const render_sprite_struct* const sprites);
+bool render_sprites(const char* const image_filename, const render_sprite_struct* const sprites);
 
-bool render_print(frames_struct* const frames, const char* const font, const float x, const float y, const char* const format, ...);
+bool render_print(const char* const font, const float x, const float y, const char* const format, ...);

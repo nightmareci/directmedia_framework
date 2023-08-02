@@ -87,7 +87,7 @@ typedef enum file_path_enum {
 	FILE_PATH_SAVE_THEN_ASSET,
 
 	/*
-	 * The number of valid file types.
+	 * The number of valid file path types.
 	 */
 	FILE_PATH_NUM
 } file_path_enum;

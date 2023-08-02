@@ -25,15 +25,14 @@
 #include "framework/app.h"
 #include "framework/nanotime.h"
 #include "framework/defs.h"
+#include "framework/render.h"
 #include "game/game.h"
 #include "SDL.h"
 #include <stdlib.h>
 #include <inttypes.h>
 #include <stdbool.h>
 
-static bool quit_now;
-
-static int refresh_rate_get() {
+static int frame_rate_get() {
 	SDL_Window* const window = app_window_get();
 	const int display_index = SDL_GetWindowDisplayIndex(window);
 	if (display_index < 0) {
@@ -51,8 +50,9 @@ static int refresh_rate_get() {
 }
 
 static int SDLCALL event_filter(void* userdata, SDL_Event* event) {
+	bool* const quit_now = userdata;
 	if (event->type == SDL_QUIT) {
-		quit_now = true;
+		*quit_now = true;
 	}
 	return 1;
 }
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 	if (!app_init(argc, argv)) {
 		return EXIT_FAILURE;
 	}
-	
+
 	SDL_GLContext context = app_context_create();
 	if (context == NULL) {
 		app_deinit();
@@ -78,67 +78,63 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
-	frames_status = frames_start(frames);
-	if (frames_status == FRAMES_STATUS_ERROR) {
-		if (!frames_destroy(frames)) {
-			fprintf(stderr, "Failed destroying the frames object\n");
-			fflush(stderr);
-		}
+	if (!render_init(frames)) {
 		app_context_destroy(context);
 		app_deinit();
 		return EXIT_FAILURE;
 	}
 
 	uint64_t tick_rate;
-	if (!game_init(frames, &tick_rate)) {
+	if (!game_init(&tick_rate)) {
 		fflush(stderr);
 		frames_destroy(frames);
+		render_deinit();
 		app_context_destroy(context);
 		app_deinit();
 		return EXIT_FAILURE;
 	}
-	
-	frames_end(frames);
 
+	bool first_render = true;
+	uint64_t last_render;
 	nanotime_step_data stepper;
 	nanotime_step_init(&stepper, NANOTIME_NSEC_PER_SEC / tick_rate, nanotime_now_max(), nanotime_now, nanotime_sleep);
-	uint64_t last_render = nanotime_now();
-	
-	quit_now = false;
-	while (SDL_PumpEvents(), SDL_FilterEvents(event_filter, NULL), !quit_now) {
+
+	bool quit_now = false;
+	while (!quit_now && (SDL_PumpEvents(), SDL_FilterEvents(event_filter, &quit_now), !quit_now)) {
 		frames_status = frames_start(frames);
 		if (frames_status == FRAMES_STATUS_ERROR) {
 			exit_code = EXIT_FAILURE;
 			break;
 		}
 
-		if (!game_update(frames)) {
+		if (!game_update(&quit_now)) {
 			fflush(stdout);
 			exit_code = EXIT_FAILURE;
 			break;
 		}
 		fflush(stdout);
-		
+
 		frames_end(frames);
 
-		int refresh_rate = refresh_rate_get();
-		if (refresh_rate < 0) {
+		int frame_rate = frame_rate_get();
+		if (frame_rate < 0) {
 			exit_code = EXIT_FAILURE;
 			break;
 		}
-		if (refresh_rate == 0) {
-			refresh_rate = 60;
+		if (frame_rate == 0) {
+			frame_rate = 60;
 		}
-		
-		const uint64_t frame_duration = NANOTIME_NSEC_PER_SEC / refresh_rate;
-		const uint64_t now = nanotime_now();
-		if (now >= last_render + frame_duration) {
+
+		const uint64_t frame_duration = NANOTIME_NSEC_PER_SEC / frame_rate;
+		uint64_t now = nanotime_now();
+		if (first_render || nanotime_interval(last_render, now, nanotime_now_max()) >= frame_duration) {
 			frames_status = frames_draw_latest(frames);
 			if (frames_status == FRAMES_STATUS_ERROR) {
 				exit_code = EXIT_FAILURE;
 				break;
 			}
-			last_render = now + frame_duration;
+			last_render = now;
+			first_render = false;
 		}
 
 		static uint64_t skips = 0u;
@@ -149,14 +145,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	frames_status = frames_start(frames);
-	if (frames_status != FRAMES_STATUS_ERROR) {
-		if (!game_deinit(frames)) {
-			fprintf(stderr, "Error deinitializing the game\n");
-			fflush(stderr);
-		}
-		frames_end(frames);
-	}
+	render_deinit();
 	if (!frames_destroy(frames)) {
 		fprintf(stderr, "Error destroying the frames object\n");
 		fflush(stderr);

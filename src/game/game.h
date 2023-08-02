@@ -23,10 +23,21 @@
  * SOFTWARE.
  */
 
-#include "framework/frames.h"
 #include <stdint.h>
 #include <stdbool.h>
 
-bool game_init(frames_struct* const frames, uint64_t* const tick_rate);
-bool game_update(frames_struct* const frames);
-bool game_deinit(frames_struct* const frames);
+/*
+ * Give the game a chance to initialize. tick_rate must be set to the duration
+ * of game ticks. This function must not call any render functions. Return true
+ * if initialization was successful, otherwise return false in the case of fatal
+ * errors.
+ */
+bool game_init(uint64_t* const tick_rate);
+
+/*
+ * Update the game for a tick. *quit must be set to true or false every tick.
+ * Set *quit to true to tell the application to quit the game; set it to false
+ * for the game to continue running. Return true if updating was successful,
+ * otherwise return false in the case of fatal errors.
+ */
+bool game_update(bool* const quit);

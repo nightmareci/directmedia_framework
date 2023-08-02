@@ -214,6 +214,17 @@ SDL_Window* app_window_get() {
 	return window;
 }
 
+/*
+ * Although it might be fine to directly pass SDL_GL_GetProcAddress to
+ * gladLoadGLLoader on many platforms, the calling convention of
+ * SDL_GL_GetProcAddress might not be identical to an ordinary C function with
+ * no calling convention specified, which is what gladLoadGLLoader expects. So,
+ * for guaranteed safety, this thunk is used.
+ */
+static void* get_proc_address(const char* name) {
+	return SDL_GL_GetProcAddress(name);
+}
+
 SDL_GLContext app_context_create() {
 	assert(window != NULL);
 
@@ -253,7 +264,7 @@ SDL_GLContext app_context_create() {
 		SDL_GL_MakeCurrent(window, NULL);
 		return NULL;
 	}
-	else if (!gladLoadGLLoader(SDL_GL_GetProcAddress)) {
+	else if (!gladLoadGLLoader(get_proc_address)) {
 		fprintf(stderr, "Error: Failed to load OpenGL functions\n");
 		fflush(stderr);
 		SDL_GL_DeleteContext(context);

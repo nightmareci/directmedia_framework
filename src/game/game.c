@@ -30,7 +30,7 @@
 #include <inttypes.h>
 #include <math.h>
 
-#define TICK_RATE 300u
+#define TICK_RATE UINT64_C(300)
 static uintptr_t ticks;
 static bool reset_average;
 static uint64_t average_ticks;
@@ -46,44 +46,52 @@ fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in\n
 culpa qui officia deserunt mollit anim id est laborum.\
 ";
 
-bool game_init(frames_struct* const frames, uint64_t* const tick_rate) {
+bool game_init(uint64_t* const tick_rate) {
 	*tick_rate = TICK_RATE;
 	ticks = 0u;
 	last_tick_time = nanotime_now();
 	reset_average = true;
-	
-	return render_init(frames);
+
+	return true;
 }
 
-bool game_update(frames_struct* const frames) {
+bool game_update(bool* const quit_now) {
+	*quit_now = false;
+
+	const Uint8* const keys = SDL_GetKeyboardState(NULL);
+	if (keys[SDL_SCANCODE_ESCAPE]) {
+		*quit_now = true;
+	}
+	if (keys[SDL_SCANCODE_SPACE]) {
+		reset_average = true;
+	}
+
 	const uint64_t current_tick_time = nanotime_now();
 	const double tick_rate = (double)NANOTIME_NSEC_PER_SEC / (current_tick_time - last_tick_time);
-    const Uint8* const keys = SDL_GetKeyboardState(NULL);
-    if (keys[SDL_SCANCODE_SPACE]) {
-        reset_average = true;
-    }
 	if (!reset_average) {
-        average_ticks++;
-        average_duration += current_tick_time - last_tick_time;
-    }
+		average_ticks++;
+		average_duration += current_tick_time - last_tick_time;
+	}
 	last_tick_time = current_tick_time;
 	ticks++;
 
-	if (!render_clear(frames, (uint8_t)((sinf(M_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f) * 255.0f))) {
+	if (!render_clear((uint8_t)((sinf(M_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f) * 255.0f))) {
 		return false;
 	}
 	
 	if (!reset_average) {
-		return render_print(frames, "font.fnt", 8.0f, 8.0f, "Ticks: %" PRIu64 "\n\nCurrent tick rate: %.9f\n\nAverage tick rate: %.9f\n\nTest text:\n%s", ticks, tick_rate, average_ticks / (average_duration / (double)NANOTIME_NSEC_PER_SEC), text);
+		if (!render_print("font.fnt", 8.0f, 8.0f, "Ticks: %" PRIu64 "\n\nCurrent tick rate: %.9f\n\nAverage tick rate: %.9f\n\nTest text:\n%s", ticks, tick_rate, average_ticks / (average_duration / (double)NANOTIME_NSEC_PER_SEC), text)) {
+			return false;
+		}
 	}
 	else {
 		reset_average = false;
-        average_ticks = 0u;
-        average_duration = 0u;
-		return render_print(frames, "font.fnt", 8.0f, 8.0f, "Ticks: %" PRIu64 "\n\nCurrent tick rate: %.9f\n\nAverage tick rate: N/A\n\nTest text:\n%s", ticks, tick_rate, text);
+		average_ticks = 0u;
+		average_duration = 0u;
+		if (!render_print("font.fnt", 8.0f, 8.0f, "Ticks: %" PRIu64 "\n\nCurrent tick rate: %.9f\n\nAverage tick rate: N/A\n\nTest text:\n%s", ticks, tick_rate, text)) {
+			return false;
+		}
 	}
-}
 
-bool game_deinit(frames_struct* const frames) {
-	return render_deinit(frames);
+	return true;
 }
