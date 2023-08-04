@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#include "framework/linear.h"
-#include "framework/defs.h"
+#include "util/linear.h"
+#include "util/defs.h"
 #include <math.h>
 
 #define TORADIANS(degrees) ((degrees) * (M_PIf / 180.0f))

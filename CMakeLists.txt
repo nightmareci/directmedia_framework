@@ -51,114 +51,150 @@ endif()
 set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target")
 message(STATUS "Build target: ${BUILD_TARGET}")
 
-configure_file("${SRC}/src/framework/app_const.c.in" "${BIN}/src/framework/app_const.c" @ONLY)
+configure_file("${SRC}/src/main/app_const.c.in" "${BIN}/src/main/app_const.c" @ONLY)
 add_executable("${EXE}"
-	"${SRC}/src/framework/app.c"
-	"${BIN}/src/framework/app_const.c"
-	"${SRC}/src/framework/frames.c"
-	"${SRC}/src/framework/dict.c"
-	"${SRC}/src/framework/file.c"
-	"${SRC}/src/framework/file_blob.c"
-	"${SRC}/src/framework/file_chunk.c"
-	"${SRC}/src/framework/file_font.c"
-	"${SRC}/src/framework/file_music.c"
-	"${SRC}/src/framework/file_surface.c"
-	"${SRC}/src/framework/font.c"
-	"${SRC}/src/framework/glad.c"
-	"${SRC}/src/framework/ini.c"
-	"${SRC}/src/framework/linear.c"
-	"${SRC}/src/framework/main.c"
-	"${SRC}/src/framework/nanotime.c"
-	"${SRC}/src/framework/opengl_util.c"
-	"${SRC}/src/framework/print.c"
-	"${SRC}/src/framework/queue.c"
-	"${SRC}/src/framework/render.c"
-	"${SRC}/src/framework/string_util.c"
-	"${SRC}/src/framework/app.h"
-	"${SRC}/src/framework/frames.h"
-	"${SRC}/src/framework/defs.h"
-	"${SRC}/src/framework/dict.h"
-	"${SRC}/src/framework/file_blob.h"
-	"${SRC}/src/framework/file_chunk.h"
-	"${SRC}/src/framework/file_font.h"
-	"${SRC}/src/framework/file.h"
-	"${SRC}/src/framework/file_music.h"
-	"${SRC}/src/framework/file_surface.h"
-	"${SRC}/src/framework/file_type_manager.h"
-	"${SRC}/src/framework/font.h"
-	"${SRC}/src/framework/glad.h"
-	"${SRC}/src/framework/ini.h"
-	"${SRC}/src/framework/khrplatform.h"
-	"${SRC}/src/framework/linear.h"
-	"${SRC}/src/framework/nanotime.h"
-	"${SRC}/src/framework/opengl_util.h"
-	"${SRC}/src/framework/print.h"
-	"${SRC}/src/framework/queue.h"
-	"${SRC}/src/framework/render.h"
-	"${SRC}/src/framework/string_util.h"
-
-	"${SRC}/src/framework/lua/lapi.c"
-	"${SRC}/src/framework/lua/lauxlib.c"
-	"${SRC}/src/framework/lua/lbaselib.c"
-	"${SRC}/src/framework/lua/lcode.c"
-	"${SRC}/src/framework/lua/lcorolib.c"
-	"${SRC}/src/framework/lua/lctype.c"
-	"${SRC}/src/framework/lua/ldblib.c"
-	"${SRC}/src/framework/lua/ldebug.c"
-	"${SRC}/src/framework/lua/ldo.c"
-	"${SRC}/src/framework/lua/ldump.c"
-	"${SRC}/src/framework/lua/lfunc.c"
-	"${SRC}/src/framework/lua/lgc.c"
-	"${SRC}/src/framework/lua/linit.c"
-	"${SRC}/src/framework/lua/liolib.c"
-	"${SRC}/src/framework/lua/llex.c"
-	"${SRC}/src/framework/lua/lmathlib.c"
-	"${SRC}/src/framework/lua/lmem.c"
-	"${SRC}/src/framework/lua/loadlib.c"
-	"${SRC}/src/framework/lua/lobject.c"
-	"${SRC}/src/framework/lua/lopcodes.c"
-	"${SRC}/src/framework/lua/loslib.c"
-	"${SRC}/src/framework/lua/lparser.c"
-	"${SRC}/src/framework/lua/lstate.c"
-	"${SRC}/src/framework/lua/lstring.c"
-	"${SRC}/src/framework/lua/lstrlib.c"
-	"${SRC}/src/framework/lua/ltable.c"
-	"${SRC}/src/framework/lua/ltablib.c"
-	"${SRC}/src/framework/lua/ltm.c"
-	"${SRC}/src/framework/lua/lundump.c"
-	"${SRC}/src/framework/lua/lutf8lib.c"
-	"${SRC}/src/framework/lua/lvm.c"
-	"${SRC}/src/framework/lua/lzio.c"
-	"${SRC}/src/framework/lua/lapi.h"
-	"${SRC}/src/framework/lua/lauxlib.h"
-	"${SRC}/src/framework/lua/lcode.h"
-	"${SRC}/src/framework/lua/lctype.h"
-	"${SRC}/src/framework/lua/ldebug.h"
-	"${SRC}/src/framework/lua/ldo.h"
-	"${SRC}/src/framework/lua/lfunc.h"
-	"${SRC}/src/framework/lua/lgc.h"
-	"${SRC}/src/framework/lua/ljumptab.h"
-	"${SRC}/src/framework/lua/llex.h"
-	"${SRC}/src/framework/lua/llimits.h"
-	"${SRC}/src/framework/lua/lmem.h"
-	"${SRC}/src/framework/lua/lobject.h"
-	"${SRC}/src/framework/lua/lopcodes.h"
-	"${SRC}/src/framework/lua/lopnames.h"
-	"${SRC}/src/framework/lua/lparser.h"
-	"${SRC}/src/framework/lua/lprefix.h"
-	"${SRC}/src/framework/lua/lstate.h"
-	"${SRC}/src/framework/lua/lstring.h"
-	"${SRC}/src/framework/lua/ltable.h"
-	"${SRC}/src/framework/lua/ltm.h"
-	"${SRC}/src/framework/lua/luaconf.h"
-	"${SRC}/src/framework/lua/lua.h"
-	"${SRC}/src/framework/lua/lualib.h"
-	"${SRC}/src/framework/lua/lundump.h"
-	"${SRC}/src/framework/lua/lvm.h"
-	"${SRC}/src/framework/lua/lzio.h"
+	# Sources for the game follow. All game sources should be under the
+	# src/game directory, not in any other directories in src/.
 
 	"${SRC}/src/game/game.c"
+
 	"${SRC}/src/game/game.h"
+
+
+	# Sources for the engine follow.
+
+
+	"${SRC}/src/main/app.h"
+
+	"${SRC}/src/main/app.c"
+	"${BIN}/src/main/app_const.c"
+	"${SRC}/src/main/main.c"
+
+
+	"${SRC}/src/render/frames.h"
+	"${SRC}/src/render/print.h"
+	"${SRC}/src/render/render.h"
+
+	"${SRC}/src/render/frames.c"
+	"${SRC}/src/render/print.c"
+	"${SRC}/src/render/render.c"
+
+
+	"${SRC}/src/util/defs.h"
+	"${SRC}/src/util/dict.h"
+	"${SRC}/src/util/font.h"
+	"${SRC}/src/util/ini.h"
+	"${SRC}/src/util/linear.c"
+	"${SRC}/src/util/nanotime.h"
+	"${SRC}/src/util/queue.h"
+	"${SRC}/src/util/string_util.h"
+
+	"${SRC}/src/util/dict.c"
+	"${SRC}/src/util/font.c"
+	"${SRC}/src/util/ini.c"
+	"${SRC}/src/util/linear.h"
+	"${SRC}/src/util/nanotime.c"
+	"${SRC}/src/util/queue.c"
+	"${SRC}/src/util/string_util.c"
+
+
+	"${SRC}/src/file/file.h"
+	"${SRC}/src/file/file_blob.h"
+	"${SRC}/src/file/file_chunk.h"
+	"${SRC}/src/file/file_font.h"
+	"${SRC}/src/file/file_music.h"
+	"${SRC}/src/file/file_surface.h"
+	"${SRC}/src/file/file_type_manager.h"
+
+	"${SRC}/src/file/file.c"
+	"${SRC}/src/file/file_blob.c"
+	"${SRC}/src/file/file_chunk.c"
+	"${SRC}/src/file/file_font.c"
+	"${SRC}/src/file/file_music.c"
+	"${SRC}/src/file/file_surface.c"
+
+
+	# Non-opengl sources should only ever include opengl.h; the other
+	# sources are just internal implementation details to how OpenGL is
+	# made available to the code. Different platforms could use different
+	# internal means to provide OpenGL, with the opengl.h header providing
+	# a standard way to access OpenGL on all platforms.
+
+
+	"${SRC}/src/opengl/glad.h"
+	"${SRC}/src/opengl/khrplatform.h"
+	"${SRC}/src/opengl/opengl.h"
+
+	"${SRC}/src/opengl/glad.c"
+	"${SRC}/src/opengl/opengl.c"
+
+
+	# A specific version of Lua is bundled directly into the repository, to
+	# ensure it's the exact version the code expects. As of last editing
+	# this file, the CMake FindLua module doesn't provide any means to
+	# request a specific version of Lua to use.
+
+
+	"${SRC}/src/lua/lapi.h"
+	"${SRC}/src/lua/lauxlib.h"
+	"${SRC}/src/lua/lcode.h"
+	"${SRC}/src/lua/lctype.h"
+	"${SRC}/src/lua/ldebug.h"
+	"${SRC}/src/lua/ldo.h"
+	"${SRC}/src/lua/lfunc.h"
+	"${SRC}/src/lua/lgc.h"
+	"${SRC}/src/lua/ljumptab.h"
+	"${SRC}/src/lua/llex.h"
+	"${SRC}/src/lua/llimits.h"
+	"${SRC}/src/lua/lmem.h"
+	"${SRC}/src/lua/lobject.h"
+	"${SRC}/src/lua/lopcodes.h"
+	"${SRC}/src/lua/lopnames.h"
+	"${SRC}/src/lua/lparser.h"
+	"${SRC}/src/lua/lprefix.h"
+	"${SRC}/src/lua/lstate.h"
+	"${SRC}/src/lua/lstring.h"
+	"${SRC}/src/lua/ltable.h"
+	"${SRC}/src/lua/ltm.h"
+	"${SRC}/src/lua/luaconf.h"
+	"${SRC}/src/lua/lua.h"
+	"${SRC}/src/lua/lualib.h"
+	"${SRC}/src/lua/lundump.h"
+	"${SRC}/src/lua/lvm.h"
+	"${SRC}/src/lua/lzio.h"
+
+	"${SRC}/src/lua/lapi.c"
+	"${SRC}/src/lua/lauxlib.c"
+	"${SRC}/src/lua/lbaselib.c"
+	"${SRC}/src/lua/lcode.c"
+	"${SRC}/src/lua/lcorolib.c"
+	"${SRC}/src/lua/lctype.c"
+	"${SRC}/src/lua/ldblib.c"
+	"${SRC}/src/lua/ldebug.c"
+	"${SRC}/src/lua/ldo.c"
+	"${SRC}/src/lua/ldump.c"
+	"${SRC}/src/lua/lfunc.c"
+	"${SRC}/src/lua/lgc.c"
+	"${SRC}/src/lua/linit.c"
+	"${SRC}/src/lua/liolib.c"
+	"${SRC}/src/lua/llex.c"
+	"${SRC}/src/lua/lmathlib.c"
+	"${SRC}/src/lua/lmem.c"
+	"${SRC}/src/lua/loadlib.c"
+	"${SRC}/src/lua/lobject.c"
+	"${SRC}/src/lua/lopcodes.c"
+	"${SRC}/src/lua/loslib.c"
+	"${SRC}/src/lua/lparser.c"
+	"${SRC}/src/lua/lstate.c"
+	"${SRC}/src/lua/lstring.c"
+	"${SRC}/src/lua/lstrlib.c"
+	"${SRC}/src/lua/ltable.c"
+	"${SRC}/src/lua/ltablib.c"
+	"${SRC}/src/lua/ltm.c"
+	"${SRC}/src/lua/lundump.c"
+	"${SRC}/src/lua/lutf8lib.c"
+	"${SRC}/src/lua/lvm.c"
+	"${SRC}/src/lua/lzio.c"
 )
 
 target_include_directories("${EXE}" PRIVATE "${SRC}/src" "${BIN}/src")
@@ -193,7 +229,8 @@ if(UNIX)
 		)
 	endif()
 
-	# With Lua, compile-time warnings show up if POSIX features aren't used on POSIX platforms.
+	# With Lua, compile-time warnings show up if POSIX features aren't used
+	# on POSIX platforms.
 	add_compile_definitions(LUA_USE_POSIX)
 	add_compile_definitions(_POSIX_VERSION=199309L)
 endif()

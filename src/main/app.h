@@ -84,14 +84,14 @@ SDL_Window* app_window_get();
  * created context current, so if the returned context isn't NULL, OpenGL can
  * immediately be used without the caller making the context current.
  */
-SDL_GLContext app_context_create();
+SDL_GLContext app_glcontext_create();
 
 /*
  * Destroy the OpenGL context. Only call in the same single thread where the
  * context was exclusively being used; such a usage pattern is required for
  * full portability.
  */
-void app_context_destroy(SDL_GLContext const context);
+void app_glcontext_destroy(SDL_GLContext const context);
 
 /*
  * Returns the current asset path.

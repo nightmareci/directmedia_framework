@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#include "framework/font.h"
-#include "framework/dict.h"
+#include "util/font.h"
+#include "util/dict.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>

@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
-#include "framework/frames.h"
-#include "framework/queue.h"
-#include "framework/app.h"
+#include "render/frames.h"
+#include "util/queue.h"
+#include "main/app.h"
+#include "opengl/opengl.h"
 #include "SDL.h"
-#include "glad.h"
 #include <stdlib.h>
 #include <assert.h>
 

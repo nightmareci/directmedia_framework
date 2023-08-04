@@ -23,13 +23,27 @@
  * SOFTWARE.
  */
 
-#include "framework/glad.h"
+#include "opengl/glad.h"
 #include <stdbool.h>
 
 /*
- * Create an OpenGL shader with only vertex and fragment shaders.
+ * Does necessary preparation before OpenGL can be used. Must be called before
+ * any OpenGL functions (opengl_*, gl*) are called. Returns true if loading was
+ * successful, otherwise false.
  */
-GLuint opengl_shader_create(const GLchar* const vert_src, const GLchar* const frag_src);
+bool opengl_init();
+
+/*
+ * Create an OpenGL shader object of the requested type. Returns 0 if creation
+ * failed.
+ */
+GLuint opengl_shader_create(const GLenum type, const GLchar* const src);
+
+/*
+ * Create an OpenGL shading program object with only vertex and fragment
+ * shaders. Returns 0 if creation failed.
+ */
+GLuint opengl_program_create(const GLchar* const vert_src, const GLchar* const frag_src);
 
 /*
  * Indicates if a previous OpenGL API call generated an error. This function

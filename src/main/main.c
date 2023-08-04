@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
-#include "framework/app.h"
-#include "framework/nanotime.h"
-#include "framework/defs.h"
-#include "framework/render.h"
-#include "framework/lua/lauxlib.h"
+#include "main/app.h"
+#include "util/nanotime.h"
+#include "util/defs.h"
+#include "render/render.h"
+#include "lua/lauxlib.h"
 #include "game/game.h"
 #include "SDL.h"
 #include <stdlib.h>
@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
-	SDL_GLContext context = app_context_create();
+	SDL_GLContext context = app_glcontext_create();
 	if (context == NULL) {
 		app_deinit();
 		fflush(stdout);
@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
 	frames_status_enum frames_status;
 	frames_struct* const frames = frames_create();
 	if (frames == NULL) {
-		app_context_destroy(context);
+		app_glcontext_destroy(context);
 		app_deinit();
 		fflush(stdout);
 		fflush(stderr);
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
 
 	if (!render_init(frames)) {
 		frames_destroy(frames);
-		app_context_destroy(context);
+		app_glcontext_destroy(context);
 		app_deinit();
 		fflush(stdout);
 		fflush(stderr);
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
 	if (!game_init(&tick_rate)) {
 		render_deinit();
 		frames_destroy(frames);
-		app_context_destroy(context);
+		app_glcontext_destroy(context);
 		app_deinit();
 		fflush(stdout);
 		fflush(stderr);
@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
 		else {
 			render_deinit();
 			frames_destroy(frames);
-			app_context_destroy(context);
+			app_glcontext_destroy(context);
 			app_deinit();
 			fflush(stdout);
 			fflush(stderr);
@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
 	if (!frames_destroy(frames)) {
 		fprintf(stderr, "Error destroying the frames object\n");
 	}
-	app_context_destroy(context);
+	app_glcontext_destroy(context);
 	app_deinit();
 	fflush(stdout);
 	fflush(stderr);

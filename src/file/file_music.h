@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "framework/file_type_manager.h"
-#include "SDL_surface.h"
+#include "file/file_type_manager.h"
+#include "SDL_mixer.h"
 
-extern const file_type_manager_struct file_type_manager_surface;
+extern const file_type_manager_struct file_type_manager_music;

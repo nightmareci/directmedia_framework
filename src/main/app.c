@@ -22,9 +22,9 @@
  * SOFTWARE.
  */
 
-#include "framework/app.h"
-#include "framework/glad.h"
-#include "framework/string_util.h"
+#include "main/app.h"
+#include "opengl/opengl.h"
+#include "util/string_util.h"
 #include "SDL.h"
 #include "SDL_mixer.h"
 #include "SDL_image.h"
@@ -214,18 +214,7 @@ SDL_Window* app_window_get() {
 	return window;
 }
 
-/*
- * Although it might be fine to directly pass SDL_GL_GetProcAddress to
- * gladLoadGLLoader on many platforms, the calling convention of
- * SDL_GL_GetProcAddress might not be identical to an ordinary C function with
- * no calling convention specified, which is what gladLoadGLLoader expects. So,
- * for guaranteed safety, this thunk is used.
- */
-static void* get_proc_address(const char* name) {
-	return SDL_GL_GetProcAddress(name);
-}
-
-SDL_GLContext app_context_create() {
+SDL_GLContext app_glcontext_create() {
 	assert(window != NULL);
 
 	int context_major_version, context_minor_version, context_profile_mask;
@@ -264,8 +253,8 @@ SDL_GLContext app_context_create() {
 		SDL_GL_MakeCurrent(window, NULL);
 		return NULL;
 	}
-	else if (!gladLoadGLLoader(get_proc_address)) {
-		fprintf(stderr, "Error: Failed to load OpenGL functions\n");
+	else if (!opengl_init()) {
+		fprintf(stderr, "Error: Failed to initialize OpenGL\n");
 		fflush(stderr);
 		SDL_GL_DeleteContext(context);
 		SDL_GL_MakeCurrent(window, NULL);
@@ -282,7 +271,7 @@ SDL_GLContext app_context_create() {
 	return context;
 }
 
-void app_context_destroy(SDL_GLContext const context) {
+void app_glcontext_destroy(SDL_GLContext const context) {
 	assert(context != NULL && window != NULL);
 
 	SDL_GL_MakeCurrent(window, NULL);

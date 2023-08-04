@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "framework/queue.h"
+#include "util/queue.h"
 #include <stdlib.h>
 #include <assert.h>
 

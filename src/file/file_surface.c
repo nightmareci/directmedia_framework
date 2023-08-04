@@ -22,12 +22,13 @@
  * SOFTWARE.
  */
 
-#include "framework/file.h"
+#include "file/file.h"
+#include "SDL_image.h"
 
 static bool create(void* const file_param, SDL_RWops* const rwops);
 static bool destroy(void* const file_param);
 
-const file_type_manager_struct file_type_manager_music = {
+const file_type_manager_struct file_type_manager_surface = {
 	.create = create,
 	.destroy = destroy
 };
@@ -35,15 +36,15 @@ const file_type_manager_struct file_type_manager_music = {
 static bool create(void* const file_param, SDL_RWops* const rwops) {
 	file_struct* const file = (file_struct*)file_param;
 
-	file->music = Mix_LoadMUS_RW(rwops, 0);
+	file->surface = IMG_Load_RW(rwops, 0);
 
-	return file->music != NULL;
+	return file->surface != NULL;
 }
 
 static bool destroy(void* const file_param) {
 	file_struct* const file = (file_struct*)file_param;
 
-	Mix_FreeMusic(file->music);
+	SDL_FreeSurface(file->surface);
 	free((void*)file->description.filename);
 	free((void*)file);
 

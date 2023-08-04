@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "framework/string_util.h"
+#include "util/string_util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>

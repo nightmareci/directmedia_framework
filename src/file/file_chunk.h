@@ -23,17 +23,7 @@
  * SOFTWARE.
  */
 
-#include "framework/file_type_manager.h"
-#include "framework/font.h"
-#include "framework/glad.h"
-#include <stdint.h>
+#include "file/file_type_manager.h"
+#include "SDL_mixer.h"
 
-/*
- * A bitmap font.
- */
-typedef struct file_font_struct {
-	font_struct* font;
-	GLuint* textures;
-} file_font_struct;
-
-extern const file_type_manager_struct file_type_manager_font;
+extern const file_type_manager_struct file_type_manager_chunk;

@@ -22,10 +22,10 @@
  * SOFTWARE.
  */
 
-#include "framework/file.h"
-#include "framework/file_type_manager.h"
-#include "framework/string_util.h"
-#include "framework/dict.h"
+#include "file/file.h"
+#include "file/file_type_manager.h"
+#include "util/string_util.h"
+#include "util/dict.h"
 #include "SDL.h"
 #include "SDL_mixer.h"
 #include "SDL_image.h"

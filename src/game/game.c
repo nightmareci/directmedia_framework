@@ -23,15 +23,15 @@
  */
 
 #include "game/game.h"
-#include "framework/render.h"
-#include "framework/nanotime.h"
-#include "framework/defs.h"
+#include "render/render.h"
+#include "util/nanotime.h"
+#include "util/defs.h"
 #include "SDL.h"
 #include <inttypes.h>
 #include <math.h>
 
-#define TICK_RATE UINT64_C(300)
-static uintptr_t ticks;
+#define TICK_RATE UINT64_C(60)
+static uint64_t ticks;
 static bool reset_average;
 static uint64_t average_ticks;
 static uint64_t average_duration;

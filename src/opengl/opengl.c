@@ -22,11 +22,27 @@
  * SOFTWARE.
  */
 
-#include "framework/opengl_util.h"
+#include "opengl/opengl.h"
+#include "SDL.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-static GLuint opengl_shader_compile(const GLenum type, const GLchar* const src) {
+/*
+ * Although it might be fine to directly pass SDL_GL_GetProcAddress to
+ * gladLoadGLLoader on many platforms, the calling convention of
+ * SDL_GL_GetProcAddress might not be identical to an ordinary C function with
+ * no calling convention specified, which is what gladLoadGLLoader expects. So,
+ * for guaranteed safety, this thunk is used.
+ */
+static void* get_proc_address(const char* name) {
+	return SDL_GL_GetProcAddress(name);
+}
+
+bool opengl_init() {
+	return !!gladLoadGLLoader(get_proc_address);
+}
+
+GLuint opengl_shader_create(const GLenum type, const GLchar* const src) {
 	GLint compiled;
 	GLuint shader = glCreateShader(type);
 	glShaderSource(shader, 1, &src, NULL);
@@ -48,12 +64,12 @@ static GLuint opengl_shader_compile(const GLenum type, const GLchar* const src) 
 	}
 }
 
-GLuint opengl_shader_create(const GLchar* const vert_src, const GLchar* const frag_src) {
-	const GLuint vert_shader = opengl_shader_compile(GL_VERTEX_SHADER, vert_src);
+GLuint opengl_program_create(const GLchar* const vert_src, const GLchar* const frag_src) {
+	const GLuint vert_shader = opengl_shader_create(GL_VERTEX_SHADER, vert_src);
 	if (vert_shader == 0u) {
 		return 0u;
 	}
-	const GLuint frag_shader = opengl_shader_compile(GL_FRAGMENT_SHADER, frag_src);
+	const GLuint frag_shader = opengl_shader_create(GL_FRAGMENT_SHADER, frag_src);
 	if (frag_shader == 0u) {
 		return 0u;
 	}

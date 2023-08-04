@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#include "framework/file.h"
-#include "framework/opengl_util.h"
+#include "file/file.h"
+#include "opengl/opengl.h"
 
 static bool create(void* const file_param, SDL_RWops* const rwops);
 static bool destroy(void* const file_param);

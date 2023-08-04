@@ -22,9 +22,9 @@
  * SOFTWARE.
  */
 
-#include "framework/ini.h"
-#include "framework/dict.h"
-#include "framework/string_util.h"
+#include "util/ini.h"
+#include "util/dict.h"
+#include "util/string_util.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>

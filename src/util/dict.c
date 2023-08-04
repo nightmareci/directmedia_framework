@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "framework/dict.h"
+#include "util/dict.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>

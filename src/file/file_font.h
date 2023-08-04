@@ -1,3 +1,4 @@
+#pragma once
 /*
  * MIT License
  *
@@ -22,34 +23,17 @@
  * SOFTWARE.
  */
 
-#include "framework/file.h"
+#include "file/file_type_manager.h"
+#include "util/font.h"
+#include "opengl/opengl.h"
+#include <stdint.h>
 
-static bool create(void* const file_param, SDL_RWops* const rwops);
-static bool destroy(void* const file_param);
+/*
+ * A bitmap font.
+ */
+typedef struct file_font_struct {
+	font_struct* font;
+	GLuint* textures;
+} file_font_struct;
 
-const file_type_manager_struct file_type_manager_chunk = {
-	.create = create,
-	.destroy = destroy
-};
-
-static bool create(void* const file_param, SDL_RWops* const rwops) {
-	file_struct* const file = (file_struct*)file_param;
-
-	Mix_Chunk* const chunk = Mix_LoadWAV_RW(rwops, 0);
-	if (chunk == NULL) {
-		return false;
-	}
-
-	file->chunk = chunk;
-	return true;
-}
-
-static bool destroy(void* const file_param) {
-	file_struct* const file = (file_struct*)file_param;
-
-	Mix_FreeChunk(file->chunk);
-	free((void*)file->description.filename);
-	free((void*)file);
-
-	return true;
-}
+extern const file_type_manager_struct file_type_manager_font;

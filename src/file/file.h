@@ -27,11 +27,11 @@
  * File and asset management library. This library is not thread-safe.
  */
 
-#include "framework/file_blob.h"
-#include "framework/file_surface.h"
-#include "framework/file_font.h"
-#include "framework/file_chunk.h"
-#include "framework/file_music.h"
+#include "file/file_blob.h"
+#include "file/file_surface.h"
+#include "file/file_font.h"
+#include "file/file_chunk.h"
+#include "file/file_music.h"
 #include "SDL_mixer.h"
 #include <stddef.h>
 #include <stdbool.h>

@@ -22,12 +22,12 @@
  * SOFTWARE.
  */
 
-#include "framework/print.h"
-#include "framework/opengl_util.h"
-#include "framework/linear.h"
-#include "framework/dict.h"
-#include "framework/queue.h"
-#include "framework/string_util.h"
+#include "render/print.h"
+#include "opengl/opengl.h"
+#include "util/linear.h"
+#include "util/dict.h"
+#include "util/queue.h"
+#include "util/string_util.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <float.h>
@@ -175,7 +175,7 @@ struct print_data_struct {
 bool print_init() {
 	assert(!inited);
 
-	shader = opengl_shader_create(vertex_source, fragment_source);
+	shader = opengl_program_create(vertex_source, fragment_source);
 	if (shader == 0u) {
 		fprintf(stderr, "Error: Failed to create the text printing shader\n");
 		fflush(stderr);

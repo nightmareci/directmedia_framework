@@ -22,13 +22,13 @@
  * SOFTWARE.
  */
 
-#include "framework/render.h"
-#include "framework/app.h"
-#include "framework/file.h"
-#include "framework/print.h"
-#include "framework/glad.h"
-#include "framework/string_util.h"
-#include "framework/defs.h"
+#include "render/render.h"
+#include "main/app.h"
+#include "file/file.h"
+#include "render/print.h"
+#include "opengl/opengl.h"
+#include "util/string_util.h"
+#include "util/defs.h"
 #include <math.h>
 #include <stdarg.h>
 #include <assert.h>
