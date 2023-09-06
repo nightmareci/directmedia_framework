@@ -23,19 +23,20 @@
  * SOFTWARE.
  */
 
+#include "util/util.h"
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
 
 /*
  * Similar to sprintf, except it returns a string containing the output. The
- * string must be freed with the C free function when you're done with it.
+ * string must be freed with mem_free when you're done with it.
  */
 char* alloc_sprintf(const char* const fmt, ...);
 
 /*
  * Similar to vsprintf, except it returns a string containing the output. The
- * string must be freed with the C free function when you're done with it.
+ * string must be freed with mem_free when you're done with it.
  */
 char* alloc_vsprintf(const char* const fmt, va_list args);
 
@@ -46,6 +47,16 @@ char* alloc_vsprintf(const char* const fmt, va_list args);
  */
 int strcmpi(const char* lhs, const char* rhs);
 #endif
+
+/*
+ * Convert English alphabetic characters to uppercase.
+ */
+void strtoupper(char* const str, const size_t size);
+
+/*
+ * Convert English alphabetic characters to lowercase.
+ */
+void strtolower(char* const str, const size_t size);
 
 /*
  * Get the Unicode codepoint corresponding to the first character in the UTF-8

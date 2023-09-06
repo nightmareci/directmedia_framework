@@ -47,7 +47,7 @@
 /*
  * The type used for dictionaries.
  */
-typedef struct dict_struct dict_struct;
+typedef struct dict_object dict_object;
 
 /*
  * Create a dictionary. The size argument sets an initial number of hash table
@@ -55,19 +55,19 @@ typedef struct dict_struct dict_struct;
  * table entries can improve performance, by choosing a number corresponding to
  * how many you expect to put into the dictionary.
  */
-dict_struct* dict_create(const size_t size);
+dict_object* dict_create(const size_t size);
 
 /*
  * Destroy a dictionary. Always returns true if all the entries don't have a
  * value destructor; if there are one or more entries with a value destructor,
  * returns false if the value destructor of an entry failed, otherwise true.
  */
-bool dict_destroy(dict_struct* const dict);
+bool dict_destroy(dict_object* const dict);
 
 /*
  * Create a copy of an entire dictionary.
  */
-dict_struct* dict_copy(dict_struct* const dict);
+dict_object* dict_copy(dict_object* const dict);
 
 /*
  * Get a value in the dictionary. If you don't want to get the size of the
@@ -77,7 +77,7 @@ dict_struct* dict_copy(dict_struct* const dict);
  * unchanged.
  */
 bool dict_get(
-	dict_struct* const dict,
+	dict_object* const dict,
 	const void* const key, const size_t key_size,
 	void** const value, size_t* const value_size
 );
@@ -91,7 +91,7 @@ bool dict_get(
  * dictionary.
  */
 bool dict_set(
-	dict_struct* const dict,
+	dict_object* const dict,
 	const void* const key, const size_t key_size,
 	void* const value, const size_t value_size,
 	bool (* const value_destroy)(void* const data),
@@ -104,7 +104,7 @@ bool dict_set(
  * successfully; otherwise false.
  */
 bool dict_remove(
-	dict_struct* const dict,
+	dict_object* const dict,
 	const void* const key, const size_t key_size,
 	void** const value, size_t* const value_size
 );
@@ -114,12 +114,12 @@ bool dict_remove(
  * dictionary. Returns true if the replacement was successful, otherwise false.
  * The previous value's relevant data is returned in the dst_* parameters; the
  * dst_* parameters can be NULL, like for a previous dict_get of the value,
- * realloc of the value, and dict_replace of the value. If you retrieve the
+ * mem_realloc of the value, and dict_replace of the value. If you retrieve the
  * previous data in the dst_* parameters, it's your responsibility to manage
  * said data.
  */
 bool dict_replace(
-	dict_struct* const dict,
+	dict_object* const dict,
 	const void* const key, const size_t key_size,
 	void* const src_value, const size_t src_value_size,
 	bool (* const src_value_destroy)(void* const data),
@@ -134,13 +134,13 @@ bool dict_replace(
  * count is zero, it deletes all entries, while keeping the same internal table
  * size.
  */
-bool dict_only(dict_struct* const dict, const size_t count, const void* const* const keys, const size_t* const key_sizes);
+bool dict_only(dict_object* const dict, const size_t count, const void* const* const keys, const size_t* const key_sizes);
 
 /*
  * Calls the function for each entry in the dictionary, providing a functional
  * programming map operation.
  */
-bool dict_map(dict_struct* const dict, void* const data, bool (* const map)(void* const data, const void* const key, const size_t key_size, void* const value, const size_t value_size));
+bool dict_map(dict_object* const dict, void* const data, bool (* const map)(void* const data, const void* const key, const size_t key_size, void* const value, const size_t value_size));
 
 /*
  * Helper function that assists with creating keys from a list of pairs_count pairs like:

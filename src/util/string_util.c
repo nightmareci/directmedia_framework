@@ -23,6 +23,7 @@
  */
 
 #include "util/string_util.h"
+#include "util/util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -39,13 +40,13 @@ char* alloc_sprintf(const char* const fmt, ...) {
 		va_end(args_list2);
 		return NULL;
 	}
-	char* printout = malloc(sz);
+	char* printout = mem_malloc(sz);
 	if (!printout) {
 		va_end(args_list2);
 		return NULL;
 	}
 	if (vsnprintf(printout, sz, fmt, args_list2) < 0) {
-		free(printout);
+		mem_free(printout);
 		va_end(args_list2);
 		return NULL;
 	}
@@ -57,18 +58,17 @@ char* alloc_vsprintf(const char* const fmt, va_list args) {
 	va_list args_copy;
 	va_copy(args_copy, args);
 	const int sz = vsnprintf(NULL, 0, fmt, args) + 1;
-	va_end(args);
 	if (sz < 0) {
 		va_end(args_copy);
 		return NULL;
 	}
-	char* printout = malloc(sz);
+	char* printout = mem_malloc(sz);
 	if (!printout) {
 		va_end(args_copy);
 		return NULL;
 	}
 	if (vsnprintf(printout, sz, fmt, args_copy) < 0) {
-		free(printout);
+		mem_free(printout);
 		va_end(args_copy);
 		return NULL;
 	}
@@ -92,6 +92,18 @@ int strcmpi(const char* lhs, const char* rhs) {
 	else return 0;
 }
 #endif
+
+void strtoupper(char* const str, const size_t size) {
+	for (size_t i = 0u; i < size; i++) {
+		str[i] = toupper(str[i]);
+	}
+}
+
+void strtolower(char* const str, const size_t size) {
+	for (size_t i = 0u; i < size; i++) {
+		str[i] = tolower(str[i]);
+	}
+}
 
 uint32_t utf8_get(const char* const str, size_t* const bytes) {
 	uint32_t codepoint = 0u;

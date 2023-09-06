@@ -43,7 +43,7 @@ GLuint opengl_shader_create(const GLenum type, const GLchar* const src);
  * Create an OpenGL shading program object with only vertex and fragment
  * shaders. Returns 0 if creation failed.
  */
-GLuint opengl_program_create(const GLchar* const vert_src, const GLchar* const frag_src);
+GLuint opengl_program_create(const GLchar* const vertex_src, const GLchar* const fragment_src);
 
 /*
  * Indicates if a previous OpenGL API call generated an error. This function

@@ -22,50 +22,51 @@
  * SOFTWARE.
  */
 
-#include "file/file.h"
+#include "data/data.h"
+#include "util/util.h"
 #include <stdlib.h>
 
-static bool create(void* const file_param, SDL_RWops* const rwops);
-static bool destroy(void* const file_param);
+static bool create(void* const data_param, SDL_RWops* const rwops);
+static bool destroy(void* const data_param);
 
-const file_type_manager_struct file_type_manager_blob = {
+const data_type_manager data_type_manager_raw = {
 	.create = create,
 	.destroy = destroy
 };
 
-static bool create(void* const file_param, SDL_RWops* const rwops) {
-	file_struct* const file = (file_struct*)file_param;
+static bool create(void* const data_param, SDL_RWops* const rwops) {
+	data_object* const data = (data_object*)data_param;
 
 	const Sint64 size = SDL_RWsize(rwops);
 	if (size <= 0) {
 		return false;
 	}
 
-	const size_t base_size = offsetof(file_blob_struct, data) + size;
+	const size_t base_size = offsetof(data_raw_object, bytes) + size;
 	const size_t align = 16u - (base_size % 16u);
-    file_blob_struct* const blob = (file_blob_struct*)malloc(base_size + (align % 16u));
-	if (blob == NULL) {
+    data_raw_object* const raw = (data_raw_object*)mem_aligned_alloc(16u, base_size + (align % 16u));
+	if (raw == NULL) {
 		return false;
 	}
 
-	blob->size = size;
+	raw->size = size;
 
-	const size_t read = SDL_RWread(rwops, blob->data, 1u, size);
+	const size_t read = SDL_RWread(rwops, raw->bytes, 1u, size);
 	if (read == 0u || read != size) {
-		free(blob);
+		mem_aligned_free(raw);
 		return false;
 	}
 
-	file->blob = blob;
+	data->raw = raw;
 	return true;
 }
 
-static bool destroy(void* const file_param) {
-	file_struct* const file = (file_struct*)file_param;
+static bool destroy(void* const data_param) {
+	data_object* const data = (data_object*)data_param;
 
-	free((void*)file->blob);
-	free((void*)file->description.filename);
-	free((void*)file);
+	mem_aligned_free((void*)data->raw);
+	mem_free((void*)data->id.filename);
+	mem_free((void*)data);
 
 	return true;
 }

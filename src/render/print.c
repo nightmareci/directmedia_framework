@@ -23,11 +23,13 @@
  */
 
 #include "render/print.h"
+#include "data/data_types.h"
 #include "opengl/opengl.h"
 #include "util/linear.h"
 #include "util/dict.h"
 #include "util/queue.h"
 #include "util/string_util.h"
+#include "util/util.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <float.h>
@@ -35,8 +37,8 @@
 
 static bool inited = false;
 
-static const char* const vertex_source =
-	"#version 150\n"
+static const char* const vertex_src =
+	"#version 330\n"
 	"in vec4 v_position;"
 	"out vec2 f_position;"
 	"uniform mat4 v_transform;"
@@ -44,8 +46,8 @@ static const char* const vertex_source =
 	"	gl_Position = v_transform * vec4(v_position.xy, 0.0, 1.0);"
 	"	f_position = v_position.zw;"
 	"}";
-static const char* const fragment_source =
-	"#version 150\n"
+static const char* const fragment_src =
+	"#version 330\n"
 	"in vec2 f_position;"
 	"out vec4 f_color;"
 	"uniform sampler2D f_texture;"
@@ -54,7 +56,7 @@ static const char* const fragment_source =
 	"}";
 static GLuint shader = 0u;
 
-typedef struct printout_struct {
+typedef struct printout_object {
 	size_t length, size;
 	GLuint array;
 	GLushort* indices;
@@ -62,24 +64,24 @@ typedef struct printout_struct {
 	vec4* v_position;
 	GLuint v_position_buffer;
 	bool buffers_changed;
-} printout_struct;
+} printout_object;
 
-static printout_struct* printout_create() {
-	printout_struct* const printout = (printout_struct*)calloc(1, sizeof(printout_struct));
+static printout_object* printout_create() {
+	printout_object* const printout = (printout_object*)mem_calloc(1, sizeof(printout_object));
 	if (printout == NULL) {
 		return NULL;
 	}
 
 	glGenVertexArrays(1, &printout->array);
 	if (opengl_error("Error from glGenVertexArrays: ")) {
-		free(printout);
+		mem_free(printout);
 		return NULL;
 	}
 
 	glGenBuffers(1, &printout->v_position_buffer);
 	if (opengl_error("Error from glGenVertexArrays: ")) {
 		glDeleteVertexArrays(1, &printout->array);
-		free(printout);
+		mem_free(printout);
 		return NULL;
 	}
 
@@ -87,7 +89,7 @@ static printout_struct* printout_create() {
 	if (opengl_error("Error from glGenVertexArrays: ")) {
 		glDeleteBuffers(1, &printout->v_position_buffer);
 		glDeleteVertexArrays(1, &printout->array);
-		free(printout);
+		mem_free(printout);
 		return NULL;
 	}
 
@@ -102,13 +104,13 @@ static printout_struct* printout_create() {
 }
 
 static bool printout_destroy(void* const value) {
-	printout_struct* const printout = (printout_struct*)value;
+	printout_object* const printout = (printout_object*)value;
 
 	if (printout->indices != NULL) {
-		free(printout->indices);
+		mem_free(printout->indices);
 	}
 	if (printout->v_position != NULL) {
-		free(printout->v_position);
+		mem_free(printout->v_position);
 	}
 	if (printout->array != 0u) {
 		glDeleteVertexArrays(1, &printout->array);
@@ -119,12 +121,12 @@ static bool printout_destroy(void* const value) {
 	if (printout->v_position_buffer != 0u) {
 		glDeleteBuffers(1, &printout->v_position_buffer);
 	}
-	free(printout);
+	mem_free(printout);
 
 	return true;
 }
 
-static bool printout_resize(printout_struct* const printout, const size_t new_size) {
+static bool printout_resize(printout_object* const printout, const size_t new_size) {
 	assert(
 		printout != NULL &&
 		new_size * 6u <= UINT16_MAX
@@ -135,8 +137,8 @@ static bool printout_resize(printout_struct* const printout, const size_t new_si
 	}
 	else if (new_size == 0u) {
 		if (printout->size > 0u) {
-			free(printout->v_position);
-			free(printout->indices);
+			mem_free(printout->v_position);
+			mem_free(printout->indices);
 			printout->v_position = NULL;
 			printout->indices = NULL;
 		}
@@ -146,13 +148,13 @@ static bool printout_resize(printout_struct* const printout, const size_t new_si
 		return true;
 	}
 	else {
-		vec4* const v_position = (vec4*)realloc(printout->v_position, new_size * 4u * sizeof(vec4));
+		vec4* const v_position = (vec4*)mem_realloc(printout->v_position, new_size * 4u * sizeof(vec4));
 		if (v_position == NULL) {
 			return false;
 		}
 		printout->v_position = v_position;
 
-		GLushort* const indices = realloc(printout->indices, new_size * 6u * sizeof(GLushort));
+		GLushort* const indices = mem_realloc(printout->indices, new_size * 6u * sizeof(GLushort));
 		if (indices == NULL) {
 			return false;
 		}
@@ -167,15 +169,14 @@ static bool printout_resize(printout_struct* const printout, const size_t new_si
 	}
 }
 
-struct print_data_struct {
-	queue_struct* commands;
-	dict_struct* printouts;
+struct print_data_object {
+	dict_object* printouts;
 };
 
 bool print_init() {
 	assert(!inited);
 
-	shader = opengl_program_create(vertex_source, fragment_source);
+	shader = opengl_program_create(vertex_src, fragment_src);
 	if (shader == 0u) {
 		fprintf(stderr, "Error: Failed to create the text printing shader\n");
 		fflush(stderr);
@@ -200,57 +201,57 @@ void print_deinit() {
 	inited = false;
 }
 
-print_data_struct* print_data_create() {
+print_data_object* print_data_create() {
 	assert(inited);
 
-	print_data_struct* const data = malloc(sizeof(print_data_struct));
+	print_data_object* const data = mem_malloc(sizeof(print_data_object));
 	if (data == NULL) {
 		return NULL;
 	}
 
 	data->printouts = dict_create(1u);
 	if (data->printouts == NULL) {
-		free(data);
+		mem_free(data);
 		return NULL;
 	}
 
 	return data;
 }
 
-void print_data_destroy(print_data_struct* const data) {
+void print_data_destroy(print_data_object* const data) {
 	assert(data != NULL);
 
 	dict_destroy(data->printouts);
-	free(data);
+	mem_free(data);
 }
 
 static bool size_reset(void* const data, const void* const key, const size_t key_size, void* const value, const size_t value_size) {
-	printout_struct* const printout = (printout_struct*)value;
+	printout_object* const printout = (printout_object*)value;
 
 	printout->length = 0u;
 
 	return true;
 }
 
-bool print_size_reset(print_data_struct* const data) {
+bool print_size_reset(print_data_object* const data) {
 	assert(inited && data != NULL);
 
 	return dict_map(data->printouts, NULL, size_reset);
 }
 
 static bool size_shrink(void* const data, const void* const key, const size_t key_size, void* const value, const size_t value_size) {
-	printout_struct* const printout = (printout_struct*)value;
+	printout_object* const printout = (printout_object*)value;
 
 	return printout_resize(printout, printout->length);
 }
 
-bool print_size_shrink(print_data_struct* const data) {
+bool print_size_shrink(print_data_object* const data) {
 	assert(inited && data != NULL);
 
 	return dict_map(data->printouts, NULL, size_shrink);
 }
 
-bool print_text(print_data_struct* const data, file_font_struct* const font, const float x, const float y, const char* const text) {
+bool print_text(print_data_object* const data, data_font_object* const font, const float x, const float y, const char* const text) {
 	assert(
 		inited &&
 		data != NULL &&
@@ -301,15 +302,15 @@ bool print_text(print_data_struct* const data, file_font_struct* const font, con
 			continue;
 		}
 
-		printout_struct* printout = NULL;
-		if (!dict_get(data->printouts, &font->textures[font_c->page], sizeof(GLuint), (void**)&printout, NULL)) {
+		printout_object* printout = NULL;
+		if (!dict_get(data->printouts, &font->textures[font_c->page]->texture->name, sizeof(GLuint), (void**)&printout, NULL)) {
 			printout = printout_create();
 			if (printout == NULL) {
 				fprintf(stderr, "Error: Failed allocating printout\n");
 				fflush(stderr);
 				return false;
 			}
-			if (!dict_set(data->printouts, &font->textures[font_c->page], sizeof(GLuint), printout, sizeof(printout), printout_destroy, NULL)) {
+			if (!dict_set(data->printouts, &font->textures[font_c->page]->texture->name, sizeof(GLuint), printout, sizeof(printout), printout_destroy, NULL)) {
 				fprintf(stderr, "Error: Failed adding a printout to the print data\n");
 				fflush(stderr);
 				return false;
@@ -393,7 +394,7 @@ bool print_text(print_data_struct* const data, file_font_struct* const font, con
 	return true;
 }
 
-bool print_formatted(print_data_struct* const data, file_font_struct* const font, const float x, const float y, const char* const format, ...) {
+bool print_formatted(print_data_object* const data, data_font_object* const font, const float x, const float y, const char* const format, ...) {
 	assert(
 		inited &&
 		data != NULL &&
@@ -411,16 +412,17 @@ bool print_formatted(print_data_struct* const data, file_font_struct* const font
 		return false;
 	}
 	const bool success = print_text(data, font, x, y, text);
-	free(text);
+	mem_free(text);
 	va_end(args);
 
 	return success;
 }
 
 static bool printout_draw(void* const data, const void* const key, const size_t key_size, void* const value, const size_t value_size) {
-	const GLuint texture = *(GLuint*)key;
-	printout_struct* const printout = (printout_struct*)value;
+	const GLuint texture_name = *(GLuint*)key;
+	printout_object* const printout = (printout_object*)value;
 
+	glBindVertexArray(0u);
 	glBindBuffer(GL_ARRAY_BUFFER, printout->v_position_buffer);
 	GLint buffer_size;
 	glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &buffer_size);
@@ -431,7 +433,6 @@ static bool printout_draw(void* const data, const void* const key, const size_t 
 		}
 		glBufferSubData(GL_ARRAY_BUFFER, 0, printout->size * 4u * sizeof(vec4), printout->v_position);
 
-		glBindVertexArray(0u);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, printout->indices_buffer);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, printout->size * 6u * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
 		if (opengl_error("Error from glBufferData: ")) {
@@ -442,7 +443,6 @@ static bool printout_draw(void* const data, const void* const key, const size_t 
 	else if (printout->buffers_changed) {
 		glBindBuffer(GL_ARRAY_BUFFER, printout->v_position_buffer);
 		glBufferSubData(GL_ARRAY_BUFFER, 0, printout->length * 4u * sizeof(vec4), printout->v_position);
-		glBindVertexArray(0u);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, printout->indices_buffer);
 		glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, printout->length * 6u * sizeof(GLushort), printout->indices);
 		printout->buffers_changed = false;
@@ -454,12 +454,12 @@ static bool printout_draw(void* const data, const void* const key, const size_t 
 
 	glBindVertexArray(printout->array);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, texture);
+	glBindTexture(GL_TEXTURE_2D, texture_name);
 	glDrawElements(GL_TRIANGLES, printout->length * 6u, GL_UNSIGNED_SHORT, 0);
-	return !opengl_error("Error from glDrawArrays: ");
+	return !opengl_error("Error from glDrawElements in printout_draw: ");
 }
 
-bool print_draw(print_data_struct* const data, const float width, const float height) {
+bool print_draw(print_data_object* const data, const float width, const float height) {
 	assert(
 		inited &&
 		data != NULL &&

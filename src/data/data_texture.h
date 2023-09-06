@@ -1,3 +1,4 @@
+#pragma once
 /*
  * MIT License
  *
@@ -22,30 +23,13 @@
  * SOFTWARE.
  */
 
-#include "file/file.h"
+#include "data/data_type_manager.h"
+#include "opengl/opengl.h"
 
-static bool create(void* const file_param, SDL_RWops* const rwops);
-static bool destroy(void* const file_param);
+typedef struct data_texture_object {
+	GLuint name;
+	float width;
+	float height;
+} data_texture_object;
 
-const file_type_manager_struct file_type_manager_music = {
-	.create = create,
-	.destroy = destroy
-};
-
-static bool create(void* const file_param, SDL_RWops* const rwops) {
-	file_struct* const file = (file_struct*)file_param;
-
-	file->music = Mix_LoadMUS_RW(rwops, 0);
-
-	return file->music != NULL;
-}
-
-static bool destroy(void* const file_param) {
-	file_struct* const file = (file_struct*)file_param;
-
-	Mix_FreeMusic(file->music);
-	free((void*)file->description.filename);
-	free((void*)file);
-
-	return true;
-}
+extern const data_type_manager data_type_manager_texture;

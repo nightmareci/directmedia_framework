@@ -78,25 +78,23 @@ bool app_inited();
 SDL_Window* app_window_get();
 
 /*
- * Creates an OpenGL context of the application's window. Only call in the
- * single thread where the context will exclusively be used; such a usage
- * pattern is required for full portability. This function also makes the
- * created context current, so if the returned context isn't NULL, OpenGL can
- * immediately be used without the caller making the context current.
+ * Creates an OpenGL context of the application's window. This function also
+ * makes the created context current, so if the returned context isn't NULL,
+ * OpenGL can immediately be used without the caller making the context current.
  */
 SDL_GLContext app_glcontext_create();
 
 /*
  * Destroy the OpenGL context. Only call in the same single thread where the
- * context was exclusively being used; such a usage pattern is required for
- * full portability.
+ * context was created in; such a usage pattern is required for full
+ * portability.
  */
 void app_glcontext_destroy(SDL_GLContext const context);
 
 /*
- * Returns the current asset path.
+ * Returns the current resource path.
  */
-const char* const app_asset_path_get();
+const char* const app_resource_path_get();
 
 /*
  * Returns the current save path.

@@ -25,19 +25,19 @@
 
 #include <stdbool.h>
 
-typedef struct queue_struct queue_struct;
+typedef struct queue_object queue_object;
 
 /*
  * Create an empty queue object. If creation of the queue object failed, returns
  * NULL, indicating a fatal error.
  */
-queue_struct* queue_create();
+queue_object* queue_create();
 
 /*
  * Destroy a queue object. Also empties the queue, if there are values already
  * queued.
  */
-void queue_destroy(queue_struct* const queue);
+void queue_destroy(queue_object* const queue);
 
 /*
  * Enqueues a value pointer onto the queue. Returns true if enqueueing was
@@ -45,15 +45,15 @@ void queue_destroy(queue_struct* const queue);
  * queue_dequeue returns NULL for an empty queue, it is invalid to attempt to
  * enqueue NULL.
  */
-bool queue_enqueue(queue_struct* const queue, void* const value);
+bool queue_enqueue(queue_object* const queue, void* const value);
 
 /*
  * Dequeues a value pointer from the queue. Returns a non-NULL value pointer if
  * successful, otherwise returns NULL if the queue is now empty.
  */
-void* queue_dequeue(queue_struct* const queue);
+void* queue_dequeue(queue_object* const queue);
 
 /*
  * Empties out the internal queue node cache.
  */
-void queue_empty_cache(queue_struct* const queue);
+void queue_empty_cache(queue_object* const queue);

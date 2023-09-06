@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "file/file_font.h"
+#include "data/data_font.h"
 #include <stddef.h>
 
 /*
@@ -40,7 +40,7 @@
  * the context doesn't have to be current.
  */
 
-typedef struct print_data_struct print_data_struct;
+typedef struct print_data_object print_data_object;
 
 /*
  * Initialize the printing subsystem.
@@ -55,37 +55,37 @@ void print_deinit();
 /*
  * Create a print data object for printing.
  */
-print_data_struct* print_data_create();
+print_data_object* print_data_create();
 
 /*
  * Destroy data object for printing.
  */
-void print_data_destroy(print_data_struct* const data);
+void print_data_destroy(print_data_object* const data);
 
 /*
  * Reset the text currently to be printed in the print data to no text. Doesn't
  * change the size of the data. Call this first, then print_data_size_shrink, to
  * free the memory associated with the print data.
  */
-bool print_size_reset(print_data_struct* const data);
+bool print_size_reset(print_data_object* const data);
 
 /*
  * Shrink the data associated with the print data to the size that fits only the
  * text currently to be printed.
  */
-bool print_size_shrink(print_data_struct* const data);
+bool print_size_shrink(print_data_object* const data);
 
 /*
  * Print the text at the requested position.
  */
-bool print_text(print_data_struct* const data, file_font_struct* const font, const float x, const float y, const char* const text);
+bool print_text(print_data_object* const data, data_font_object* const font, const float x, const float y, const char* const text);
 
 /*
  * Print the formatted text at the requested position.
  */
-bool print_formatted(print_data_struct* const data, file_font_struct* const font, const float x, const float y, const char* const format, ...);
+bool print_formatted(print_data_object* const data, data_font_object* const font, const float x, const float y, const char* const format, ...);
 
 /*
  * Draw all text on screen.
  */
-bool print_draw(print_data_struct* const data, const float width, const float height);
+bool print_draw(print_data_object* const data, const float width, const float height);

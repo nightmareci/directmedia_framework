@@ -38,7 +38,23 @@ set(ORG "nightmareci")
 set(EXE "${CMAKE_PROJECT_NAME}")
 set(NAME "Skill Clear")
 
-option(SHOW_RELEASE_VERSION "If TRUE, the build is a finalized release version, and the game will show the release version. If FALSE, the text \"Prerelease <UTC build timestamp>\" will be shown instead")
+option(SHOW_RELEASE_VERSION "If TRUE, the build is a finalized release version, and the game will show the release version. If FALSE, the text \"Prerelease <UTC build timestamp>\" will be shown instead.")
+
+if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE MATCHES Debug)
+	set(IS_DEBUG TRUE)
+else()
+	set(IS_DEBUG FALSE)
+endif()
+
+option(MEM_DEBUG "If TRUE, memory debugging will be included regardless of build type." ${IS_DEBUG})
+if(MEM_DEBUG)
+	add_compile_definitions(MEM_DEBUG)
+endif()
+
+option(RELEASE_DEBUG "If TRUE, assertions via release_assert will be active regardless of build type." ${IS_DEBUG})
+if(RELEASE_DEBUG)
+	add_compile_definitions(RELEASE_DEBUG)
+endif()
 
 string(TIMESTAMP CONFIGURE_TIME UTC)
 
@@ -48,7 +64,7 @@ else()
 	set(VERSION "Prerelease ${CONFIGURE_TIME}")
 endif()
 
-set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target")
+set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target.")
 message(STATUS "Build target: ${BUILD_TARGET}")
 
 configure_file("${SRC}/src/main/app_const.c.in" "${BIN}/src/main/app_const.c" @ONLY)
@@ -56,9 +72,10 @@ add_executable("${EXE}"
 	# Sources for the game follow. All game sources should be under the
 	# src/game directory, not in any other directories in src/.
 
-	"${SRC}/src/game/game.c"
 
 	"${SRC}/src/game/game.h"
+
+	"${SRC}/src/game/game.c"
 
 
 	# Sources for the engine follow.
@@ -74,13 +91,16 @@ add_executable("${EXE}"
 	"${SRC}/src/render/frames.h"
 	"${SRC}/src/render/print.h"
 	"${SRC}/src/render/render.h"
+	"${SRC}/src/render/render_types.h"
+	"${SRC}/src/render/sprites.h"
 
 	"${SRC}/src/render/frames.c"
 	"${SRC}/src/render/print.c"
 	"${SRC}/src/render/render.c"
+	"${SRC}/src/render/sprites.c"
 
 
-	"${SRC}/src/util/defs.h"
+	"${SRC}/src/util/conqueue.h"
 	"${SRC}/src/util/dict.h"
 	"${SRC}/src/util/font.h"
 	"${SRC}/src/util/ini.h"
@@ -88,7 +108,9 @@ add_executable("${EXE}"
 	"${SRC}/src/util/nanotime.h"
 	"${SRC}/src/util/queue.h"
 	"${SRC}/src/util/string_util.h"
+	"${SRC}/src/util/util.h"
 
+	"${SRC}/src/util/conqueue.c"
 	"${SRC}/src/util/dict.c"
 	"${SRC}/src/util/font.c"
 	"${SRC}/src/util/ini.c"
@@ -96,29 +118,31 @@ add_executable("${EXE}"
 	"${SRC}/src/util/nanotime.c"
 	"${SRC}/src/util/queue.c"
 	"${SRC}/src/util/string_util.c"
+	"${SRC}/src/util/util.c"
 
 
-	"${SRC}/src/file/file.h"
-	"${SRC}/src/file/file_blob.h"
-	"${SRC}/src/file/file_chunk.h"
-	"${SRC}/src/file/file_font.h"
-	"${SRC}/src/file/file_music.h"
-	"${SRC}/src/file/file_surface.h"
-	"${SRC}/src/file/file_type_manager.h"
+	"${SRC}/src/data/data.h"
+	"${SRC}/src/data/data_font.h"
+	"${SRC}/src/data/data_music.h"
+	"${SRC}/src/data/data_raw.h"
+	"${SRC}/src/data/data_sound.h"
+	"${SRC}/src/data/data_texture.h"
+	"${SRC}/src/data/data_types.h"
+	"${SRC}/src/data/data_type_manager.h"
 
-	"${SRC}/src/file/file.c"
-	"${SRC}/src/file/file_blob.c"
-	"${SRC}/src/file/file_chunk.c"
-	"${SRC}/src/file/file_font.c"
-	"${SRC}/src/file/file_music.c"
-	"${SRC}/src/file/file_surface.c"
+	"${SRC}/src/data/data.c"
+	"${SRC}/src/data/data_font.c"
+	"${SRC}/src/data/data_music.c"
+	"${SRC}/src/data/data_raw.c"
+	"${SRC}/src/data/data_sound.c"
+	"${SRC}/src/data/data_texture.c"
 
 
-	# Non-opengl sources should only ever include opengl.h; the other
-	# sources are just internal implementation details to how OpenGL is
-	# made available to the code. Different platforms could use different
-	# internal means to provide OpenGL, with the opengl.h header providing
-	# a standard way to access OpenGL on all platforms.
+	# Non-opengl-directory sources should only ever include opengl.h; the
+	# other sources are just internal implementation details to how OpenGL
+	# is made available to the code. Different platforms could use
+	# different internal means to provide OpenGL, with the opengl.h header
+	# providing a standard way to access OpenGL on all platforms.
 
 
 	"${SRC}/src/opengl/glad.h"
@@ -199,25 +223,44 @@ add_executable("${EXE}"
 
 target_include_directories("${EXE}" PRIVATE "${SRC}/src" "${BIN}/src")
 
-# TODO: Add these as Git submodules and include them in the build, but still
-# have the option to use system-installed libraries.
-find_package(SDL2 REQUIRED)
-find_package(SDL2_image REQUIRED)
-find_package(SDL2_mixer REQUIRED)
+# TODO: Add the libraries as Git submodules and include them in the build, but
+# still have the option to use system-installed libraries.
 
-target_link_libraries("${EXE}"
-	PRIVATE
-		SDL2::SDL2
-		SDL2_image::SDL2_image
-		SDL2_mixer::SDL2_mixer
-)
+if(MINGW)
+	# Using find_package for the needed libraries is broken in MSYS2, but
+	# using pkg-config works fine. And we can use the nice IMPORTED_TARGET
+	# feature for cleaner code here, as we already require a sufficient
+	# CMake version (3.6 or higher required for IMPORTED_TARGET support).
 
-# SDL_main isn't used on all platforms.
-if(TARGET SDL2::SDL2main)
+	find_package(PkgConfig REQUIRED)
+	set(DEPENDENCIES
+		SDL2
+		SDL2_image
+		SDL2_mixer
+	)
+	foreach(DEPENDENCY ${DEPENDENCIES})
+		pkg_check_modules("${DEPENDENCY}" REQUIRED IMPORTED_TARGET "${DEPENDENCY}")
+		target_link_libraries("${EXE}" PRIVATE "PkgConfig::${DEPENDENCY}")
+	endforeach()
+else()
+	find_package(SDL2 REQUIRED)
+	find_package(SDL2_image REQUIRED)
+	find_package(SDL2_mixer REQUIRED)
+
 	target_link_libraries("${EXE}"
 		PRIVATE
-			SDL2::SDL2main
+			SDL2::SDL2
+			SDL2_image::SDL2_image
+			SDL2_mixer::SDL2_mixer
 	)
+
+	# SDL_main isn't used on all platforms.
+	if(TARGET SDL2::SDL2main)
+		target_link_libraries("${EXE}"
+			PRIVATE
+				SDL2::SDL2main
+		)
+	endif()
 endif()
 
 if(UNIX)
@@ -235,12 +278,14 @@ if(UNIX)
 	add_compile_definitions(_POSIX_VERSION=199309L)
 endif()
 
-option(BUNDLE_LIBRARIES "Bundle the libraries needed by the game's executable, for distributable releases")
+option(BUNDLE_LIBRARIES "Bundle the libraries needed by the game's executable, for distributable releases.")
+
+# TODO: Generate game data files from data source files at build time into the
+# build directory resource location; install the build directory resource
+# directory into the installed resource location.
 
 if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
-	add_compile_definitions(BUILD_TARGET_WINDOWS_MSVC)
-
-	option(HIDE_WINDOWS_CONSOLE "Hide the Windows console")
+	option(HIDE_WINDOWS_CONSOLE "Hide the Windows console.")
 
 	target_link_options("${EXE}"
 		PRIVATE
@@ -257,8 +302,8 @@ if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
 
 	install(FILES "${SRC}/copyright.txt" DESTINATION ".")
 
-	install(FILES "${SRC}/asset/font.fnt" DESTINATION "asset")
-	install(FILES "${SRC}/asset/font_0.png" DESTINATION "asset")
+	install(FILES "${SRC}/resource/font.fnt" DESTINATION "resource")
+	install(FILES "${SRC}/resource/font_0.png" DESTINATION "resource")
 elseif(BUILD_TARGET STREQUAL Darwin)
 	# TODO: Support installation for macOS.
 elseif(BUILD_TARGET STREQUAL Linux)

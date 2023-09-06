@@ -23,30 +23,31 @@
  */
 
 #include "util/queue.h"
+#include "util/util.h"
 #include <stdlib.h>
 #include <assert.h>
 
-typedef struct node_struct node_struct;
-struct node_struct {
+typedef struct node_object node_object;
+struct node_object {
     void* value;
-    node_struct* next;
+    node_object* next;
 };
 
-struct queue_struct {
-    node_struct* dequeue;
-	node_struct* enqueue;
-    node_struct* cache;
+struct queue_object {
+    node_object* dequeue;
+	node_object* enqueue;
+    node_object* cache;
 };
 
-queue_struct* queue_create() {
-    queue_struct* const queue = malloc(sizeof(queue_struct));
+queue_object* queue_create() {
+    queue_object* const queue = mem_malloc(sizeof(queue_object));
     if (queue == NULL) {
         return NULL;
     }
 
-    queue->dequeue = queue->enqueue = calloc(1u, sizeof(node_struct));
+    queue->dequeue = queue->enqueue = mem_calloc(1u, sizeof(node_object));
     if (queue->enqueue == NULL) {
-        free(queue);
+        mem_free(queue);
         return false;
     }
     queue->cache = NULL;
@@ -54,24 +55,25 @@ queue_struct* queue_create() {
 	return queue;
 }
 
-void queue_destroy(queue_struct* const queue) {
+void queue_destroy(queue_object* const queue) {
     assert(queue != NULL);
 
     while (queue_dequeue(queue) != NULL) continue;
+    mem_free(queue->dequeue);
     queue_empty_cache(queue);
-    free(queue);
+    mem_free(queue);
 }
 
-bool queue_enqueue(queue_struct* const queue, void* const value) {
+bool queue_enqueue(queue_object* const queue, void* const value) {
     assert(queue != NULL && value != NULL);
 
-    node_struct* node;
+    node_object* node;
     if (queue->cache != NULL) {
         node = queue->cache;
         queue->cache = queue->cache->next;
     }
     else {
-        node = malloc(sizeof(node_struct));
+        node = mem_malloc(sizeof(node_object));
     }
     if (node == NULL) {
         return false;
@@ -85,14 +87,14 @@ bool queue_enqueue(queue_struct* const queue, void* const value) {
     return true;
 }
 
-void* queue_dequeue(queue_struct* const queue) {
+void* queue_dequeue(queue_object* const queue) {
     assert(queue != NULL);
 
     if (queue->dequeue->next == NULL) {
         return NULL;
     }
 
-    node_struct* const dequeue = queue->dequeue;
+    node_object* const dequeue = queue->dequeue;
     void* const value = dequeue->next->value;
     queue->dequeue = dequeue->next;
     dequeue->next = queue->cache;
@@ -101,12 +103,12 @@ void* queue_dequeue(queue_struct* const queue) {
     return value;
 }
 
-void queue_empty_cache(queue_struct* const queue) {
+void queue_empty_cache(queue_object* const queue) {
     assert(queue != NULL);
 
-    for (node_struct* current = queue->cache; current != NULL;) {
-        node_struct* const next = current->next;
-        free(current);
+    for (node_object* current = queue->cache; current != NULL;) {
+        node_object* const next = current->next;
+        mem_free(current);
         current = next;
     }
 }

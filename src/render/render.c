@@ -23,23 +23,23 @@
  */
 
 #include "render/render.h"
+#include "render/sprites.h"
 #include "main/app.h"
-#include "file/file.h"
+#include "data/data.h"
 #include "render/print.h"
 #include "opengl/opengl.h"
 #include "util/string_util.h"
-#include "util/defs.h"
+#include "util/util.h"
 #include <math.h>
 #include <stdarg.h>
 #include <assert.h>
 
-static frames_struct* render_frames;
-static file_cache_struct* file_cache;
-static print_data_struct* print_data;
+static frames_object* render_frames;
+static data_cache_object* data_cache;
+static print_data_object* print_data;
+static sprites_object* sprites;
 
-bool render_init(frames_struct* const frames) {
-	render_frames = frames;
-
+bool render_init(frames_object* const frames) {
 	if (!print_init()) {
 		return false;
 	}
@@ -48,8 +48,8 @@ bool render_init(frames_struct* const frames) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_CULL_FACE);
 
-	file_cache = file_cache_create(app_asset_path_get(), app_save_path_get());
-	if (file_cache == NULL) {
+	data_cache = data_cache_create(app_resource_path_get(), app_save_path_get());
+	if (data_cache == NULL) {
 		print_deinit();
 		return false;
 	}
@@ -57,30 +57,40 @@ bool render_init(frames_struct* const frames) {
 	print_data = print_data_create();
 	if (print_data == NULL) {
 		print_deinit();
-		file_cache_destroy(file_cache);
+		data_cache_destroy(data_cache);
 		return false;
 	}
+
+	sprites = NULL;
+
+	SDL_MemoryBarrierRelease();
+	SDL_AtomicSetPtr((void**)&render_frames, frames);
 
 	return true;
 }
 
 void render_deinit() {
+	if (sprites != NULL) {
+		sprites_destroy(sprites);
+	}
+
 	if (print_data != NULL) {
 		print_data_destroy(print_data);
 	}
 
-	if (file_cache != NULL) {
-		file_cache_destroy(file_cache);
+	if (data_cache != NULL) {
+		data_cache_destroy(data_cache);
 	}
 
 	print_deinit();
 
 	print_data = NULL;
-	file_cache = NULL;
-	render_frames = NULL;
+	data_cache = NULL;
+	SDL_MemoryBarrierRelease();
+	SDL_AtomicSetPtr((void**)&render_frames, NULL);
 }
 
-static bool clear_draw_func(void* const state) {
+static bool render_clear_draw_func(void* const state) {
 	const float shade = (uint8_t)(uintptr_t)state / 255.0f;
 	glClearColor(shade, shade, shade, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -89,50 +99,119 @@ static bool clear_draw_func(void* const state) {
 }
 
 bool render_clear(const uint8_t shade) {
-	static const command_funcs_struct funcs = {
+	static const command_funcs funcs = {
 		.update = NULL,
-		.draw = clear_draw_func,
+		.draw = render_clear_draw_func,
 		.destroy = NULL
 	};
 	return frames_enqueue_command(render_frames, &funcs, (void*)(uintptr_t)shade);
 }
 
-bool render_sprites(const char* const image_filename, const render_sprite_struct* const sprites) {
-	// TODO
+typedef struct render_sprites_struct {
+	const char* sheet_filename;
+	size_t num_added;
+	sprite_type* added_sprites;
+} render_sprites_struct;
+
+static bool render_sprites_update_func(void* const state) {
+	render_sprites_struct* const s = state;
+	if (sprites == NULL) {
+		sprites = sprites_create(0u);
+		if (sprites == NULL) {
+			return false;
+		}
+	}
+	else {
+		sprites_restart(sprites);
+	}
+	return sprites_add(sprites, s->num_added, s->added_sprites);
+}
+
+static bool render_sprites_draw_func(void* const state) {
+	render_sprites_struct* const s = state;
+	const data_object* const data = data_cache_get(data_cache, DATA_TYPE_TEXTURE, DATA_PATH_RESOURCE, s->sheet_filename, NULL, false);
+	if (data == NULL) {
+		return false;
+	}
+	return sprites_draw(sprites, data->texture);
+}
+
+static void render_sprites_destroy_func(void* const state) {
+	render_sprites_struct* const s = state;
+	mem_free(s->added_sprites);
+	mem_free(s);
+}
+
+bool render_sprites(const char* const sheet_filename, const size_t num_added, const sprite_type* const added_sprites) {
+	assert(
+		sheet_filename != NULL &&
+		added_sprites != NULL
+	);
+
+	if (num_added == 0u) {
+		return true;
+	}
+
+	render_sprites_struct* const s = mem_malloc(sizeof(render_sprites_struct));
+	if (s == NULL) {
+		return false;
+	}
+
+	s->sheet_filename = sheet_filename;
+	s->num_added = num_added;
+	s->added_sprites = mem_malloc(sizeof(sprite_type) * num_added);
+	if (s->added_sprites == NULL) {
+		mem_free(s);
+		return false;
+	}
+	memcpy(s->added_sprites, added_sprites, sizeof(sprite_type) * num_added);
+
+	static const command_funcs funcs = {
+		.update = render_sprites_update_func,
+		.draw = render_sprites_draw_func,
+		.destroy = render_sprites_destroy_func
+	};
+
+	if (!frames_enqueue_command(render_frames, &funcs, s)) {
+		mem_free(s->added_sprites);
+		mem_free(s);
+		return false;
+	}
+
 	return true;
 }
 
-typedef struct print_struct {
+typedef struct render_print_struct {
 	const char* font_filename;
 	float x;
 	float y;
 	char* text;
-} print_struct;
+} render_print_struct;
 
-static bool print_draw_func(void* const state) {
-	print_struct* const p = state;
-	const file_struct* const file = file_cache_get(file_cache, FILE_TYPE_FONT, FILE_PATH_ASSET, p->font_filename, NULL, false);
-	if (file == NULL) {
+static bool render_print_draw_func(void* const state) {
+	render_print_struct* const p = state;
+	const data_object* const data = data_cache_get(data_cache, DATA_TYPE_FONT, DATA_PATH_RESOURCE, p->font_filename, NULL, false);
+	if (data == NULL) {
 		return false;
 	}
 	if (!print_size_reset(print_data)) {
 		return false;
 	}
-	if (!print_text(print_data, file->font, p->x, p->y, p->text)) {
+	if (!print_text(print_data, data->font, p->x, p->y, p->text)) {
 		return false;
 	}
 
 	return print_draw(print_data, 640.0f, 480.0f);
 }
 
-static void print_destroy(void* const state) {
-	print_struct* const p = state;
-	free((char*)p->text);
-	free(p);
+static void render_print_destroy_func(void* const state) {
+	render_print_struct* const p = state;
+	mem_free((char*)p->text);
+	mem_free(p);
 }
 
 bool render_print(const char* const font_filename, const float x, const float y, const char* const format, ...) {
-	print_struct* const p = malloc(sizeof(print_struct));
+	render_print_struct* const p = mem_malloc(sizeof(render_print_struct));
 	if (p == NULL) {
 		return false;
 	}
@@ -145,18 +224,18 @@ bool render_print(const char* const font_filename, const float x, const float y,
 	p->text = alloc_vsprintf(format, args);
 	va_end(args);
 	if (p->text == NULL) {
-		free(p);
+		mem_free(p);
 		return false;
 	}
-	
-	static const command_funcs_struct funcs = {
+
+	static const command_funcs funcs = {
 		.update = NULL,
-		.draw = print_draw_func,
-		.destroy = print_destroy
+		.draw = render_print_draw_func,
+		.destroy = render_print_destroy_func
 	};
 	if (!frames_enqueue_command(render_frames, &funcs, p)) {
-		free((char*)p->text);
-		free(p);
+		mem_free((char*)p->text);
+		mem_free(p);
 		return false;
 	}
 

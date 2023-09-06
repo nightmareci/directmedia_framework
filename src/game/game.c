@@ -25,7 +25,7 @@
 #include "game/game.h"
 #include "render/render.h"
 #include "util/nanotime.h"
-#include "util/defs.h"
+#include "util/util.h"
 #include "SDL.h"
 #include <inttypes.h>
 #include <math.h>
@@ -58,10 +58,15 @@ bool game_init(uint64_t* const tick_rate) {
 bool game_update(bool* const quit_now) {
 	*quit_now = false;
 
+	// TODO: Implement a higher-level input API that doesn't present any device
+	// specifics to the game; e.g., only abstract inputs are made available,
+	// like "menu confirm/deny", not "button A/B".
 	const Uint8* const keys = SDL_GetKeyboardState(NULL);
 	if (keys[SDL_SCANCODE_ESCAPE]) {
 		*quit_now = true;
+		return true;
 	}
+
 	if (keys[SDL_SCANCODE_SPACE]) {
 		reset_average = true;
 	}
@@ -78,9 +83,23 @@ bool game_update(bool* const quit_now) {
 	if (!render_clear((uint8_t)((sinf(M_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f) * 255.0f))) {
 		return false;
 	}
-	
+
 	if (!reset_average) {
-		if (!render_print("font.fnt", 8.0f, 8.0f, "Ticks: %" PRIu64 "\n\nCurrent tick rate: %.9f\n\nAverage tick rate: %.9f\n\nTest text:\n%s", ticks, tick_rate, average_ticks / (average_duration / (double)NANOTIME_NSEC_PER_SEC), text)) {
+		if (!render_print("font.fnt", 8.0f, 8.0f, "\
+			Ticks: %" PRIu64 "\n\n\
+			Current tick rate: %.9f\n\n\
+			Average tick rate: %.9f\n\n\
+			Total dynamic memory in use: %.04f MiB\n\n\
+			Total physical memory available: %.04f MiB\n\n\
+			Test text:\n%s",
+
+			ticks,
+			tick_rate,
+			average_ticks / (average_duration / (double)NANOTIME_NSEC_PER_SEC),
+			mem_total() / 1048576.0,
+			mem_left() / 1048576.0,
+			text
+		)) {
 			return false;
 		}
 	}
@@ -88,9 +107,30 @@ bool game_update(bool* const quit_now) {
 		reset_average = false;
 		average_ticks = 0u;
 		average_duration = 0u;
-		if (!render_print("font.fnt", 8.0f, 8.0f, "Ticks: %" PRIu64 "\n\nCurrent tick rate: %.9f\n\nAverage tick rate: N/A\n\nTest text:\n%s", ticks, tick_rate, text)) {
+		if (!render_print("font.fnt", 8.0f, 8.0f, "\
+			Ticks: %" PRIu64 "\n\n\
+			Current tick rate: %.9f\n\n\
+			Average tick rate: N/A\n\n\
+			Total dynamic memory in use: %.04f MiB\n\n\
+			Total physical memory available: %.04f MiB\n\n\
+			Test text:\n%s",
+			
+			ticks,
+			tick_rate,
+			mem_total() / 1048576.0,
+			mem_left() / 1048576.0,
+			text
+		)) {
 			return false;
 		}
+	}
+
+	const static sprite_type sprite = {
+		.dst = { 640.0f / 2.0f, 480.0f / 2.0f + 60.0f, 120.0f, 120.0f },
+		.src = { 0.0f, 0.0f, 16.0f, 16.0f }
+	};
+	if (!render_sprites("sprite.png", 1u, &sprite)) {
+		return false;
 	}
 
 	return true;

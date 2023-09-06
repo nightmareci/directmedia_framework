@@ -23,6 +23,7 @@
  */
 
 #include "util/dict.h"
+#include "util/util.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -46,9 +47,9 @@ static inline uint64_t hash(const void* const data, const size_t size) {
 /*
  * The type used for key-value entries in dictionaries.
  */
-typedef struct entry_struct entry_struct;
-struct entry_struct {
-	entry_struct* next;	
+typedef struct entry_object entry_object;
+struct entry_object {
+	entry_object* next;	
 
 	void* key;
 	size_t key_size;
@@ -58,64 +59,64 @@ struct entry_struct {
 	bool (* value_copy)(void* const src_value, const size_t src_size, void** const dst_value, size_t* const dst_size);
 };
 
-struct dict_struct {
+struct dict_object {
 	size_t size;
 	size_t count;
-	entry_struct** entries;
+	entry_object** entries;
 };
 
-dict_struct* dict_create(const size_t size) {
+dict_object* dict_create(const size_t size) {
 	if (size == 0u) {
 		return NULL;
 	}
 
-	dict_struct* dict = malloc(sizeof(dict_struct));
+	dict_object* dict = mem_malloc(sizeof(dict_object));
 	if (dict == NULL) {
 		return NULL;
 	}
 
 	dict->size = size;
 	dict->count = 0u;
-	dict->entries = calloc(size, sizeof(entry_struct*));
+	dict->entries = mem_calloc(size, sizeof(entry_object*));
 	if (dict->entries == NULL) {
-		free(dict);
+		mem_free(dict);
 		return NULL;
 	}
 
 	return dict;
 }
 
-bool dict_destroy(dict_struct* const dict) {
+bool dict_destroy(dict_object* const dict) {
 	if (dict != NULL) {
 		size_t count = dict->count;
 		for (size_t i = 0u; count > 0u; i++) {
-			for (entry_struct* entry = dict->entries[i], * next = NULL; entry != NULL; entry = next) {
+			for (entry_object* entry = dict->entries[i], * next = NULL; entry != NULL; entry = next) {
 				next = entry->next;
-				free(entry->key);
+				mem_free(entry->key);
 				if (entry->value_destroy != NULL) {
 					if (!entry->value_destroy(entry->value)) {
 						return false;
 					}
 				}
 				else {
-					free((void*)entry->value);
+					mem_free((void*)entry->value);
 				}
-				free(entry);
+				mem_free(entry);
 				count--;
 			}
 		}
 
-		free(dict->entries);
-		free(dict);
+		mem_free(dict->entries);
+		mem_free(dict);
 	}
 	return true;
 }
 
-dict_struct* dict_copy(dict_struct* const dict) {
-	dict_struct* const copy = dict_create(dict->size);
+dict_object* dict_copy(dict_object* const dict) {
+	dict_object* const copy = dict_create(dict->size);
 
 	for (size_t i = 0u; i < dict->size; i++) {
-		for (entry_struct* entry = dict->entries[i]; entry != NULL; entry = entry->next) {
+		for (entry_object* entry = dict->entries[i]; entry != NULL; entry = entry->next) {
 			void* value = entry->value;
 			size_t value_size = entry->value_size;
 			if (entry->value_copy != NULL) {
@@ -145,13 +146,13 @@ dict_struct* dict_copy(dict_struct* const dict) {
  * another dictionary; if remove is false, the found entry is left in the
  * dictionary.
  */
-static inline void get(dict_struct* const dict, const void* const key, const size_t key_size, const bool remove, entry_struct** entry_found) {
+static inline void get(dict_object* const dict, const void* const key, const size_t key_size, const bool remove, entry_object** entry_found) {
 	if (dict->size == 0u || dict->count == 0u) {
 		*entry_found = NULL;
 	}
 	else {
 		const size_t i = hash(key, key_size) % dict->size;
-		for (entry_struct* entry = dict->entries[i], * prev = NULL; entry != NULL; prev = entry, entry = entry->next) {
+		for (entry_object* entry = dict->entries[i], * prev = NULL; entry != NULL; prev = entry, entry = entry->next) {
 			if (key_size == entry->key_size && memcmp(entry->key, key, key_size) == 0) {
 				*entry_found = entry;
 				if (remove) {
@@ -174,7 +175,7 @@ static inline void get(dict_struct* const dict, const void* const key, const siz
 }
 
 bool dict_get(
-	dict_struct* const dict,
+	dict_object* const dict,
 	const void* const key, const size_t key_size,
 	void** const value, size_t* const value_size
 ) {
@@ -182,7 +183,7 @@ bool dict_get(
 		return false;
 	}
 
-	entry_struct* entry_found;
+	entry_object* entry_found;
 	get(dict, key, key_size, false, &entry_found);
 	if (entry_found != NULL) {
 		if (value != NULL) {
@@ -201,14 +202,14 @@ bool dict_get(
 /*
  * Grows the dictionary when reducing the load factor is needed.
  */
-static inline bool grow(dict_struct* const dict) {
-	dict_struct* dict2 = dict_create(dict->size * 2u);
+static inline bool grow(dict_object* const dict) {
+	dict_object* dict2 = dict_create(dict->size * 2u);
 	if (dict2 == NULL) {
 		return false;
 	}
 
 	for (size_t i = 0u; i < dict->size; i++) {
-		for (entry_struct* entry = dict->entries[i]; entry != NULL; entry = entry->next) {
+		for (entry_object* entry = dict->entries[i]; entry != NULL; entry = entry->next) {
 			if (!dict_set(dict2, entry->key, entry->key_size, entry->value, entry->value_size, entry->value_destroy, entry->value_copy)) {
 				dict_destroy(dict2);
 				return false;
@@ -216,28 +217,28 @@ static inline bool grow(dict_struct* const dict) {
 		}
 	}
 
-	dict_struct temp = *dict;
+	dict_object temp = *dict;
 	*dict = *dict2;
 	*dict2 = temp;
 	for (size_t i = 0u; i < dict2->size; i++) {
-		for (entry_struct* entry = dict2->entries[i], * next = NULL; entry != NULL; entry = next) {
+		for (entry_object* entry = dict2->entries[i], * next = NULL; entry != NULL; entry = next) {
 			next = entry->next;
-			free(entry->key);
+			mem_free(entry->key);
 			if (entry->value_destroy == NULL) {
-				free((void*)entry->value);
+				mem_free((void*)entry->value);
 			}
-			free(entry);
+			mem_free(entry);
 		}
 	}
 
-	free(dict2->entries);
-	free(dict2);
+	mem_free(dict2->entries);
+	mem_free(dict2);
 
 	return true;
 }
 
 bool dict_set(
-	dict_struct* const dict,
+	dict_object* const dict,
 	const void* const key, const size_t key_size,
 	void* const value, const size_t value_size,
 	bool (* const value_destroy)(void* const data),
@@ -247,20 +248,20 @@ bool dict_set(
 		return false;
 	}
 
-	entry_struct* entry;
+	entry_object* entry;
 	if (value == NULL) {
-		for (entry_struct** prev = &dict->entries[hash(key, key_size) % dict->size]; prev != NULL; prev = &(*prev)->next) {
+		for (entry_object** prev = &dict->entries[hash(key, key_size) % dict->size]; prev != NULL; prev = &(*prev)->next) {
 			if (key_size == (*prev)->key_size && memcmp((*prev)->key, key, key_size) == 0) {
 				entry = *prev;
 				*prev = entry->next;
-				free(entry->key);
+				mem_free(entry->key);
 				if (entry->value_destroy != NULL) {
 					entry->value_destroy(entry->value);
 				}
 				else {
-					free(entry->value);
+					mem_free(entry->value);
 				}
-				free(entry);
+				mem_free(entry);
 				dict->count--;
 				return true;
 			}
@@ -272,7 +273,7 @@ bool dict_set(
 			entry->value_destroy(entry->value);
 		}
 		else {
-			free(entry->value);
+			mem_free(entry->value);
 		}
 
 		if (value_destroy != NULL) {
@@ -283,10 +284,10 @@ bool dict_set(
 			return true;
 		}
 		else {
-			entry->value = malloc(value_size);
+			entry->value = mem_malloc(value_size);
 			if (entry->value == NULL) {
-				free(entry->key);
-				free(entry);
+				mem_free(entry->key);
+				mem_free(entry);
 				return false;
 			}
 			memcpy(entry->value, value, value_size);
@@ -297,14 +298,14 @@ bool dict_set(
 		}
 	}
 	else {
-		entry = malloc(sizeof(entry_struct));
+		entry = mem_malloc(sizeof(entry_object));
 		if (entry == NULL) {
 			return false;
 		}
 
-		entry->key = malloc(key_size);
+		entry->key = mem_malloc(key_size);
 		if (entry->key == NULL) {
-			free(entry);
+			mem_free(entry);
 			return false;
 		}
 		entry->key_size = key_size;
@@ -317,10 +318,10 @@ bool dict_set(
 			entry->value_copy = value_copy;
 		}
 		else {
-			entry->value = malloc(value_size);
+			entry->value = mem_malloc(value_size);
 			if (entry->value == NULL) {
-				free(entry->key);
-				free(entry);
+				mem_free(entry->key);
+				mem_free(entry);
 				return false;
 			}
 			memcpy(entry->value, value, value_size);
@@ -343,14 +344,14 @@ bool dict_set(
 	}
 }
 
-bool dict_remove(dict_struct* const dict, const void* const key, const size_t key_size, void** const value, size_t* const value_size) {
+bool dict_remove(dict_object* const dict, const void* const key, const size_t key_size, void** const value, size_t* const value_size) {
 	if (dict == NULL || key == NULL || key_size == 0u || value == NULL) {
 		return false;
 	}
 
-	for (entry_struct** prev = &dict->entries[hash(key, key_size) % dict->size]; prev != NULL; prev = &(*prev)->next) {
+	for (entry_object** prev = &dict->entries[hash(key, key_size) % dict->size]; prev != NULL; prev = &(*prev)->next) {
 		if (key_size == (*prev)->key_size && memcmp((*prev)->key, key, key_size) == 0) {
-			entry_struct* const entry = *prev;
+			entry_object* const entry = *prev;
 			*prev = entry->next;
 
 			*value = entry->value;
@@ -358,8 +359,8 @@ bool dict_remove(dict_struct* const dict, const void* const key, const size_t ke
 				*value_size = entry->value_size;
 			}
 
-			free(entry->key);
-			free(entry);
+			mem_free(entry->key);
+			mem_free(entry);
 			dict->count--;
 
 			return true;
@@ -370,7 +371,7 @@ bool dict_remove(dict_struct* const dict, const void* const key, const size_t ke
 }
 
 bool dict_replace(
-	dict_struct* const dict,
+	dict_object* const dict,
 	const void* const key, const size_t key_size,
 	void* const src_value, const size_t src_value_size,
 	bool (* const src_destroy_value)(void* const data),
@@ -387,9 +388,9 @@ bool dict_replace(
 		return false;
 	}
 
-	for (entry_struct** prev = &dict->entries[hash(key, key_size) % dict->size]; prev != NULL; prev = &(*prev)->next) {
+	for (entry_object** prev = &dict->entries[hash(key, key_size) % dict->size]; prev != NULL; prev = &(*prev)->next) {
 		if (key_size == (*prev)->key_size && memcmp((*prev)->key, key, key_size) == 0) {
-			entry_struct* const entry = *prev;
+			entry_object* const entry = *prev;
 
 			if (dst_value != NULL) {
 				*dst_value = entry->value;
@@ -416,15 +417,15 @@ bool dict_replace(
 	return false;
 }
 
-bool dict_only(dict_struct* const dict, const size_t count, const void* const* const keys, const size_t* const key_sizes) {
+bool dict_only(dict_object* const dict, const size_t count, const void* const* const keys, const size_t* const key_sizes) {
 	if (dict == NULL || (count > 0u && (keys == NULL || key_sizes == NULL))) {
 		return false;
 	}
 
-	entry_struct** only_entries = NULL;
+	entry_object** only_entries = NULL;
 	if (count > 0u) {
 		// Save an array of what should be kept.
-        only_entries = (entry_struct**)malloc(sizeof(entry_struct*) * count);
+        only_entries = (entry_object**)mem_malloc(sizeof(entry_object*) * count);
 		if (only_entries == NULL) {
 			return false;
 		}
@@ -437,17 +438,17 @@ bool dict_only(dict_struct* const dict, const size_t count, const void* const* c
 	for (size_t i = 0u; dict->count > 0u; i++) {
 		assert(i < dict->size);
 		if (dict->entries[i] != NULL) {
-			free(dict->entries[i]->key);
+			mem_free(dict->entries[i]->key);
 			if (dict->entries[i]->value_destroy != NULL) {
 				if (!dict->entries[i]->value_destroy(dict->entries[i]->value)) {
-					free(only_entries);
+					mem_free(only_entries);
 					return false;
 				}
 			}
 			else {
-				free((void*)dict->entries[i]->value);
+				mem_free((void*)dict->entries[i]->value);
 			}
-			free(dict->entries[i]);
+			mem_free(dict->entries[i]);
 			dict->entries[i] = NULL;
 			dict->count--;
 		}
@@ -465,12 +466,12 @@ bool dict_only(dict_struct* const dict, const size_t count, const void* const* c
 
 			if (dict->count >= dict->size) {
 				if (!grow(dict)) {
-					free(only_entries);
+					mem_free(only_entries);
 					return false;
 				}
 			}
 		}
-		free(only_entries);
+		mem_free(only_entries);
 	}
 
 	return true;
@@ -502,10 +503,10 @@ size_t dict_tokey(void* const buf, const size_t buf_size, const size_t pairs_cou
 	return total;
 }
 
-bool dict_map(dict_struct* const dict, void* const data, bool (* const map)(void* const data, const void* const key, const size_t key_size, void* const value, const size_t value_size)) {
+bool dict_map(dict_object* const dict, void* const data, bool (* const map)(void* const data, const void* const key, const size_t key_size, void* const value, const size_t value_size)) {
 	for (size_t i = 0u; i < dict->size; i++) {
 		if (dict->entries[i] != NULL) {
-			for (entry_struct* entry = dict->entries[i]; entry != NULL; entry = entry->next) {
+			for (entry_object* entry = dict->entries[i]; entry != NULL; entry = entry->next) {
 				if (!map(data, entry->key, entry->key_size, entry->value, entry->value_size)) {
 					return false;
 				}

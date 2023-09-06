@@ -23,6 +23,7 @@
  */
 
 #include "opengl/opengl.h"
+#include "util/util.h"
 #include "SDL.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,25 +53,25 @@ GLuint opengl_shader_create(const GLenum type, const GLchar* const src) {
 		return shader;
 	}
 	else {
-		GLint info_log_len;
+		GLint info_log_length;
 		GLchar* info_log;
-		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_log_len);
-		info_log = malloc(info_log_len);
-		glGetShaderInfoLog(shader, info_log_len, NULL, info_log);
+		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_log_length);
+		info_log = mem_malloc(info_log_length);
+		glGetShaderInfoLog(shader, info_log_length, NULL, info_log);
 		fprintf(stderr, "Error: Could not compile %s shader. OpenGL shader info log:\n%s\n", (type == GL_VERTEX_SHADER) ? "vertex" : (type == GL_FRAGMENT_SHADER) ? "fragment" : "unknown", info_log);
 		fflush(stderr);
-		free(info_log);
+		mem_free(info_log);
 		return 0u;
 	}
 }
 
-GLuint opengl_program_create(const GLchar* const vert_src, const GLchar* const frag_src) {
-	const GLuint vert_shader = opengl_shader_create(GL_VERTEX_SHADER, vert_src);
-	if (vert_shader == 0u) {
+GLuint opengl_program_create(const GLchar* const vertex_src, const GLchar* const fragment_src) {
+	const GLuint vertex_shader = opengl_shader_create(GL_VERTEX_SHADER, vertex_src);
+	if (vertex_shader == 0u) {
 		return 0u;
 	}
-	const GLuint frag_shader = opengl_shader_create(GL_FRAGMENT_SHADER, frag_src);
-	if (frag_shader == 0u) {
+	const GLuint fragment_shader = opengl_shader_create(GL_FRAGMENT_SHADER, fragment_src);
+	if (fragment_shader == 0u) {
 		return 0u;
 	}
 
@@ -78,21 +79,21 @@ GLuint opengl_program_create(const GLchar* const vert_src, const GLchar* const f
 	if (program == 0u) {
 		fprintf(stderr, "Error: Could not create OpenGL program object.\n");
 		fflush(stderr);
-		glDeleteShader(vert_shader);
-		glDeleteShader(frag_shader);
+		glDeleteShader(vertex_shader);
+		glDeleteShader(fragment_shader);
 		return 0u;
 	}
 
-	glAttachShader(program, vert_shader);
-	glAttachShader(program, frag_shader);
+	glAttachShader(program, vertex_shader);
+	glAttachShader(program, fragment_shader);
 
 	glLinkProgram(program);
 
-	glDetachShader(program, vert_shader);
-	glDetachShader(program, frag_shader);
+	glDetachShader(program, vertex_shader);
+	glDetachShader(program, fragment_shader);
 
-	glDeleteShader(vert_shader);
-	glDeleteShader(frag_shader);
+	glDeleteShader(vertex_shader);
+	glDeleteShader(fragment_shader);
 
 	GLint linked;
 	glGetProgramiv(program, GL_LINK_STATUS, &linked);
@@ -100,14 +101,14 @@ GLuint opengl_program_create(const GLchar* const vert_src, const GLchar* const f
 		return program;
 	}
 	else {
-		GLint info_log_len;
+		GLint info_log_length;
 		GLchar* info_log;
-		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_len);
-		info_log = malloc(info_log_len);
-		glGetProgramInfoLog(program, info_log_len, NULL, info_log);
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_length);
+		info_log = mem_malloc(info_log_length);
+		glGetProgramInfoLog(program, info_log_length, NULL, info_log);
 		fprintf(stderr, "Error: Could not link shading program. OpenGL program info log:\n%s\n", info_log);
 		fflush(stderr);
-		free(info_log);
+		mem_free(info_log);
 		glDeleteProgram(program);
 		return 0u;
 	}

@@ -1,4 +1,3 @@
-#pragma once
 /*
  * MIT License
  *
@@ -23,7 +22,35 @@
  * SOFTWARE.
  */
 
-#include "file/file_type_manager.h"
-#include "SDL_mixer.h"
+#include "data/data.h"
+#include "util/util.h"
 
-extern const file_type_manager_struct file_type_manager_chunk;
+static bool create(void* const data_param, SDL_RWops* const rwops);
+static bool destroy(void* const data_param);
+
+const data_type_manager data_type_manager_sound = {
+	.create = create,
+	.destroy = destroy
+};
+
+static bool create(void* const data_param, SDL_RWops* const rwops) {
+	data_object* const data = (data_object*)data_param;
+
+	Mix_Chunk* const sound = Mix_LoadWAV_RW(rwops, 0);
+	if (sound == NULL) {
+		return false;
+	}
+
+	data->sound = sound;
+	return true;
+}
+
+static bool destroy(void* const data_param) {
+	data_object* const data = (data_object*)data_param;
+
+	Mix_FreeChunk(data->sound);
+	mem_free((void*)data->id.filename);
+	mem_free((void*)data);
+
+	return true;
+}

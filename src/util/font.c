@@ -24,6 +24,7 @@
 
 #include "util/font.h"
 #include "util/dict.h"
+#include "util/util.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -57,12 +58,12 @@ static bool destroy_kerning_pair(void* unused) {
 }
 
 static bool destroy_font_char(void* data) {
-	free(data);
+	mem_free(data);
 	return true;
 }
 
 font_struct* font_create(const void* const data, const size_t size) {
-	font_struct* const font = (font_struct*)malloc(sizeof(font_struct));
+	font_struct* const font = (font_struct*)mem_malloc(sizeof(font_struct));
 	if (font == NULL) {
 		return NULL;
 	}
@@ -77,13 +78,13 @@ font_struct* font_create(const void* const data, const size_t size) {
 	const uint8_t* block_data;
 
 	if (blob_size < blob_offset + 4u || blob_data[0] != 'B' || blob_data[1] != 'M' || blob_data[2] != 'F' || blob_data[3] != FONT_FORMAT_VERSION) {
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	blob_offset += 4u;
 
 	if (blob_size < blob_offset + 1u + 4u || blob_data[blob_offset + 0u] != FONT_BLOCK_INFO || (block_size = GET_UINT32(blob_data + blob_offset + 1u), block_size < 14u) || blob_size < blob_offset + 1u + 4u + block_size) {
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	blob_offset += (size_t)(1u + 4u);
@@ -102,9 +103,9 @@ font_struct* font_create(const void* const data, const size_t size) {
 	font->spacing_vert = block_data[12];
 	font->outline = block_data[13];
 	if (block_size > 14u) {
-		font->font_name = (char*)malloc(block_size - 14u);
+		font->font_name = (char*)mem_malloc(block_size - 14u);
 		if (font->font_name == NULL) {
-			free(font);
+			mem_free(font);
 			return NULL;
 		}
 		memcpy(font->font_name, block_data + 14u, block_size - 14u);
@@ -117,8 +118,8 @@ font_struct* font_create(const void* const data, const size_t size) {
 			}
 		}
 		if (!valid) {
-			free(font->font_name);
-			free(font);
+			mem_free(font->font_name);
+			mem_free(font);
 			return NULL;
 		}
 	}
@@ -129,9 +130,9 @@ font_struct* font_create(const void* const data, const size_t size) {
 
 	if (blob_size < blob_offset + 1u + 4u || blob_data[blob_offset + 0u] != FONT_BLOCK_COMMON || (block_size = GET_UINT32(blob_data + blob_offset + 1u), block_size < 15u) || blob_size < blob_offset + 1u + 4u + block_size) {
 		if (font->font_name != NULL) {
-			free(font->font_name);
+			mem_free(font->font_name);
 		}
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	blob_offset += (size_t)(1u + 4u);
@@ -144,9 +145,9 @@ font_struct* font_create(const void* const data, const size_t size) {
 	font->num_pages = GET_UINT16(block_data + 8u);
 	if (font->num_pages == 0u) {
 		if (font->font_name != NULL) {
-			free(font->font_name);
+			mem_free(font->font_name);
 		}
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	font->bits2 = (font_bits2_enum)block_data[10];
@@ -158,29 +159,29 @@ font_struct* font_create(const void* const data, const size_t size) {
 
 	if (blob_size < blob_offset + 1u + 4u || blob_data[blob_offset + 0u] != FONT_BLOCK_PAGES || (block_size = GET_UINT32(blob_data + blob_offset + 1u), block_size < 2u || (block_size / font->num_pages) * font->num_pages != block_size) || blob_size < blob_offset + 1u + 4u + block_size) {
 		if (font->font_name != NULL) {
-			free(font->font_name);
+			mem_free(font->font_name);
 		}
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	blob_offset += (size_t)(1u + 4u);
 
 	block_data = blob_data + blob_offset;
-	font->page_names = (char**)malloc(font->num_pages * sizeof(char*));
+	font->page_names = (char**)mem_malloc(font->num_pages * sizeof(char*));
 	if (font->page_names == NULL) {
 		if (font->font_name != NULL) {
-			free(font->font_name);
+			mem_free(font->font_name);
 		}
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
-	char* const page_names_data = (char*)malloc(block_size);
+	char* const page_names_data = (char*)mem_malloc(block_size);
 	if (page_names_data == NULL) {
-		free(font->page_names);
+		mem_free(font->page_names);
 		if (font->font_name != NULL) {
-			free(font->font_name);
+			mem_free(font->font_name);
 		}
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	memcpy(page_names_data, block_data, block_size);
@@ -196,50 +197,50 @@ font_struct* font_create(const void* const data, const size_t size) {
 			}
 		}
 		if (!valid) {
-			free(*font->page_names);
-			free(font->page_names);
+			mem_free(*font->page_names);
+			mem_free(font->page_names);
 			if (font->font_name != NULL) {
-				free(font->font_name);
+				mem_free(font->font_name);
 			}
-			free(font);
+			mem_free(font);
 			return NULL;
 		}
 	}
 	blob_offset += block_size;
 
 	if (blob_size < blob_offset + 1u + 4u || blob_data[blob_offset + 0u] != FONT_BLOCK_CHARS || (block_size = GET_UINT32(blob_data + blob_offset + 1u), block_size < 20u || block_size % 20u != 0u) || blob_size < blob_offset + 1u + 4u + block_size) {
-		free(*font->page_names);
-		free(font->page_names);
+		mem_free(*font->page_names);
+		mem_free(font->page_names);
 		if (font->font_name != NULL) {
-			free(font->font_name);
+			mem_free(font->font_name);
 		}
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	blob_offset += (size_t)(1u + 4u);
 
 	block_data = blob_data + blob_offset;
 	const size_t num_chars = block_size / 20u;
-	dict_struct* const font_chars = dict_create(num_chars);
+	dict_object* const font_chars = dict_create(num_chars);
 	if (font_chars == NULL) {
-		free(*font->page_names);
-		free(font->page_names);
+		mem_free(*font->page_names);
+		mem_free(font->page_names);
 		if (font->font_name != NULL) {
-			free(font->font_name);
+			mem_free(font->font_name);
 		}
-		free(font);
+		mem_free(font);
 		return NULL;
 	}
 	for (size_t i = 0u; i < num_chars; i++) {
-		font_char_struct* const font_char = (font_char_struct*)malloc(sizeof(font_char_struct));
+		font_char_struct* const font_char = (font_char_struct*)mem_malloc(sizeof(font_char_struct));
 		if (font_char == NULL) {
 			dict_destroy(font_chars);
-			free(*font->page_names);
-			free(font->page_names);
+			mem_free(*font->page_names);
+			mem_free(font->page_names);
 			if (font->font_name != NULL) {
-				free(font->font_name);
+				mem_free(font->font_name);
 			}
-			free(font);
+			mem_free(font);
 			return NULL;
 		}
 
@@ -256,14 +257,14 @@ font_struct* font_create(const void* const data, const size_t size) {
 		font_char->channel = char_data[19];
 
 		if (!dict_set(font_chars, &id, sizeof(id), font_char, sizeof(font_char), destroy_font_char, NULL)) {
-			free(font_char);
+			mem_free(font_char);
 			dict_destroy(font_chars);
-			free(*font->page_names);
-			free(font->page_names);
+			mem_free(*font->page_names);
+			mem_free(font->page_names);
 			if (font->font_name != NULL) {
-				free(font->font_name);
+				mem_free(font->font_name);
 			}
-			free(font);
+			mem_free(font);
 			return NULL;
 		}
 	}
@@ -273,27 +274,27 @@ font_struct* font_create(const void* const data, const size_t size) {
 	if (blob_size > blob_offset) {
 		if (blob_size < blob_offset + 1u + 4u || blob_data[blob_offset + 0u] != FONT_BLOCK_KERNING_PAIRS || (block_size = GET_UINT32(blob_data + blob_offset + 1u), block_size % 10u != 0u) || blob_size < blob_offset + 1u + 4u + block_size) {
 			dict_destroy(font_chars);
-			free(*font->page_names);
-			free(font->page_names);
+			mem_free(*font->page_names);
+			mem_free(font->page_names);
 			if (font->font_name != NULL) {
-				free(font->font_name);
+				mem_free(font->font_name);
 			}
-			free(font);
+			mem_free(font);
 			return NULL;
 		}
 		blob_offset += (size_t)(1u + 4u);
 
 		block_data = blob_data + blob_offset;
 		size_t num_kerning_pairs = block_size / 10u;
-		dict_struct* const kerning_pairs = dict_create(num_kerning_pairs);
+		dict_object* const kerning_pairs = dict_create(num_kerning_pairs);
 		if (kerning_pairs == NULL) {
 			dict_destroy(font_chars);
-			free(*font->page_names);
-			free(font->page_names);
+			mem_free(*font->page_names);
+			mem_free(font->page_names);
 			if (font->font_name != NULL) {
-				free(font->font_name);
+				mem_free(font->font_name);
 			}
-			free(font);
+			mem_free(font);
 			return NULL;
 		}
 		for (size_t i = 0u; i < num_kerning_pairs; i++) {
@@ -306,12 +307,12 @@ font_struct* font_create(const void* const data, const size_t size) {
 			if (!dict_set(kerning_pairs, (const void*)pair, sizeof(pair), (void*)(intptr_t)amount, sizeof(void*), destroy_kerning_pair, NULL)) {
 				dict_destroy(kerning_pairs);
 				dict_destroy(font_chars);
-				free(*font->page_names);
-				free(font->page_names);
+				mem_free(*font->page_names);
+				mem_free(font->page_names);
 				if (font->font_name != NULL) {
-					free(font->font_name);
+					mem_free(font->font_name);
 				}
-				free(font);
+				mem_free(font);
 				return NULL;
 			}
 		}
@@ -325,21 +326,21 @@ font_struct* font_create(const void* const data, const size_t size) {
 }
 
 bool font_destroy(font_struct* const font) {
-	dict_destroy((dict_struct*)font->kerning_pairs);
-	dict_destroy((dict_struct*)font->chars);
-	free(*font->page_names);
-	free(font->page_names);
+	dict_destroy((dict_object*)font->kerning_pairs);
+	dict_destroy((dict_object*)font->chars);
+	mem_free(*font->page_names);
+	mem_free(font->page_names);
 	if (font->font_name != NULL) {
-		free(font->font_name);
+		mem_free(font->font_name);
 	}
-	free(font);
+	mem_free(font);
 	return true;
 }
 
 bool font_kerning_amount_get(font_struct* const font, const size_t first, const size_t second, ptrdiff_t* const amount) {
 	const size_t pair[2] = { first, second };
 	void* amount_value;
-	if (!dict_get((dict_struct*)font->kerning_pairs, (const void*)pair, sizeof(pair), &amount_value, NULL)) {
+	if (!dict_get((dict_object*)font->kerning_pairs, (const void*)pair, sizeof(pair), &amount_value, NULL)) {
 		return false;
 	}
 
@@ -348,7 +349,7 @@ bool font_kerning_amount_get(font_struct* const font, const size_t first, const 
 }
 
 bool font_char_get(font_struct* const font, const size_t id, const font_char_struct** const font_char) {
-	dict_struct* const font_chars = (dict_struct*)font->chars;
+	dict_object* const font_chars = (dict_object*)font->chars;
 	if (dict_get(font_chars, &id, sizeof(id), (void**)font_char, NULL)) {
 		return true;
 	}

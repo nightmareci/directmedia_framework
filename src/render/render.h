@@ -23,26 +23,18 @@
  * SOFTWARE.
  */
 
+#include "render/render_types.h"
 #include "render/frames.h"
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct render_rect_struct {
-	float x, y;
-	float w, h;
-} render_rect_struct;
-
-typedef struct render_sprite_struct {
-	render_rect_struct src;
-	render_rect_struct dst;
-} render_sprite_struct;
-
-bool render_init(frames_struct* const frames);
+bool render_init(frames_object* const frames);
 
 void render_deinit();
 
 bool render_clear(const uint8_t shade);
 
-bool render_sprites(const char* const image_filename, const render_sprite_struct* const sprites);
+bool render_sprites(const char* const sheet_filename, const size_t num_added, const sprite_type* const added_sprites);
 
-bool render_print(const char* const font, const float x, const float y, const char* const format, ...);
+bool render_print(const char* const font_filename, const float x, const float y, const char* const format, ...);

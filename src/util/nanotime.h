@@ -56,24 +56,33 @@
  */
 
 #if defined(_MSC_VER)
-#if (_MSC_VER < 1600)
-#error "Current Visual Studio version is not at least Visual Studio 2010, the nanotime library requires at least 2010."
-#endif
+	#if (_MSC_VER < 1600)
+		#error "Current Visual Studio version is not at least Visual Studio 2010, the nanotime library requires at least 2010."
+	#endif
 #elif defined(__cplusplus)
-#if (__cplusplus < 201103L)
-#error "Current C++ standard is not at least C++11, the nanotime library requires at least C++11."
-#endif
+	#if (__cplusplus < 201103L)
+		#error "Current C++ standard is not at least C++11, the nanotime library requires at least C++11."
+	#endif
 #elif defined(__STDC_VERSION__)
-#if (__STDC_VERSION__ < 199901L)
-#error "Current C standard is not at least C99, the nanotime library requires at least C99."
-#endif
+	#if (__STDC_VERSION__ < 199901L)
+		#error "Current C standard is not at least C99, the nanotime library requires at least C99."
+	#endif
 #else
-#error "Current C or C++ standard is unknown, the nanotime library requires stdint.h and stdbool.h to be available (C99 or higher, C++11 or higher, Visual Studio 2010 or higher)."
+	#error "Current C or C++ standard is unknown, the nanotime library requires stdint.h and stdbool.h to be available (C99 or higher, C++11 or higher, Visual Studio 2010 or higher)."
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/*
+ * Implementor's note: This library directly uses Win32 APIs both for MSVC and
+ * MinGW GCC, as they work for both, and produce better behavior in MinGW
+ * builds. Detection of them is accomplished via checking if _WIN32 is defined,
+ * as it's defined in both MSVC and MinGW GCC. Though it's convenient to have
+ * UNIX-like APIs on Windows provided by MinGW, they just aren't as good as
+ * directly using Win32 APIs on Windows.
+ */
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -117,11 +126,17 @@ void nanotime_sleep(uint64_t nsec_count);
  * unknown platforms, the function is defined as a no-op.
  */
 
-#ifdef _MSC_VER
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
 #define nanotime_yield() YieldProcessor()
 #define NANOTIME_YIELD_IMPLEMENTED
-#elif (defined(__unix__) || defined(__APPLE__) || defined(__MINGW32__) || defined(__MINGW64__)) && (_POSIX_VERSION >= 200112L)
+#elif (defined(__unix__) || defined(__APPLE__)) && defined(_POSIX_VERSION) && (_POSIX_VERSION >= 200112L)
 #include <sched.h>
 #define nanotime_yield() (void)sched_yield()
 #define NANOTIME_YIELD_IMPLEMENTED
@@ -153,12 +168,12 @@ typedef struct nanotime_step_data {
 	uint64_t now_max;
 	uint64_t (* now)();
 	void (* sleep)(uint64_t nsec_count);
-	
-#ifdef __APPLE__
+
+ 	#ifdef __APPLE__
 	uint64_t overhead_numer;
 	uint64_t overhead_denom;
 	uint64_t backoff;
-#endif
+	#endif
 	uint64_t zero_sleep_duration;
 	uint64_t accumulator;
 	uint64_t sleep_point;
@@ -187,9 +202,14 @@ bool nanotime_step(nanotime_step_data* const stepper);
  * resort.
  */
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <Windows.h>
 
 #ifndef NANOTIME_NOW_IMPLEMENTED
@@ -241,7 +261,7 @@ uint64_t nanotime_now_max() {
 #ifndef NANOTIME_SLEEP_IMPLEMENTED
 void nanotime_sleep(uint64_t nsec_count) {
 	LARGE_INTEGER dueTime;
-	
+
 	if (nsec_count < UINT64_C(100)) {
 		/*
 		 * Allows the OS to schedule another process for a single time
@@ -264,18 +284,18 @@ void nanotime_sleep(uint64_t nsec_count) {
 			 * system, but revert to low resolution if the user's system
 			 * doesn't support high resolution.
 			 */
-				(timer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS)) == NULL &&
+			(timer = CreateWaitableTimerEx(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS)) == NULL &&
 #endif
 			(timer = CreateWaitableTimer(NULL, TRUE, NULL)) == NULL
-			) {
+		) {
 			return;
 		}
-		
+
 		dueTime.QuadPart = -(LONGLONG)(nsec_count / UINT64_C(100));
-		
+
 		SetWaitableTimer(timer, &dueTime, 0L, NULL, NULL, FALSE);
 		WaitForSingleObject(timer, INFINITE);
-		
+
 		CloseHandle(timer);
 	}
 }
@@ -328,33 +348,32 @@ uint64_t nanotime_now_max() {
 
 #endif
 
-#if (defined(__unix__) || defined(__MINGW32__) || defined(__MINGW64__)) && !defined(NANOTIME_NOW_IMPLEMENTED)
+#if defined(__unix__) && defined(_POSIX_VERSION) && (_POSIX_VERSION >= 199309L) && !defined(NANOTIME_NOW_IMPLEMENTED)
 // Current platform is some version of POSIX, that might have clock_gettime.
 #include <unistd.h>
-#if _POSIX_VERSION >= 199309L
 #include <time.h>
 #include <errno.h>
 uint64_t nanotime_now() {
 	struct timespec now;
 	const int status = clock_gettime(
-#if defined(CLOCK_MONOTONIC_RAW)
+		#if defined(CLOCK_MONOTONIC_RAW)
 		// Monotonic raw is more precise, but not always available. For the
 		// sorts of applications this code is intended for, mainly soft real
 		// time applications such as game programming, the subtle
 		// inconsistencies of it vs. monotonic aren't an issue.
 		CLOCK_MONOTONIC_RAW
-#elif defined(CLOCK_MONOTONIC)
+		#elif defined(CLOCK_MONOTONIC)
 		// Monotonic is quite good, and widely available, but not as precise as
 		// monotonic raw, so it's only used if required.
 		CLOCK_MONOTONIC
-#else
+		#else
 		// Realtime isn't fully correct, as it's calendar time, but is even more
 		// widely available than monotonic. Monotonic is only unavailable on
 		// very old platforms though, so old they're likely unused now (as of
 		// last editing this, 2023).
 		CLOCK_REALTIME
-#endif
-		, &now);
+		#endif
+	, &now);
 	assert(status == 0 || (status == -1 && errno != EOVERFLOW));
 	if (status == 0 || (status == -1 && errno != EOVERFLOW)) {
 		return (uint64_t)now.tv_sec * NANOTIME_NSEC_PER_SEC + (uint64_t)now.tv_nsec;
@@ -365,9 +384,6 @@ uint64_t nanotime_now() {
 }
 #define NANOTIME_NOW_IMPLEMENTED
 
-#else
-#error "Current platform is UNIX/POSIX, but doesn't support required functionality (IEEE Std 1003.1b-1993 is required; #define _POSIX_VERSION as 199309L or higher)."
-#endif
 #endif
 
 #if (defined(__unix__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__MINGW32__) || defined(__MINGW64__)) && !defined(NANOTIME_SLEEP_IMPLEMENTED)
@@ -439,8 +455,8 @@ extern "C" uint64_t nanotime_now() {
 	return static_cast<uint64_t>(
 		std::chrono::time_point_cast<std::chrono::nanoseconds>(
 			std::chrono::steady_clock::now()
-			).time_since_epoch().count()
-		);
+		).time_since_epoch().count()
+	);
 }
 #define NANOTIME_NOW_IMPLEMENTED
 #endif
@@ -492,8 +508,8 @@ uint64_t nanotime_interval(const uint64_t start, const uint64_t end, const uint6
 		max > UINT64_C(0) &&
 		start <= max &&
 		end <= max
-		);
-	
+	);
+
 	if (end >= start) {
 		return end - start;
 	}
@@ -509,23 +525,23 @@ void nanotime_step_init(nanotime_step_data* const stepper, const uint64_t sleep_
 		now_max > UINT64_C(0) &&
 		now != NULL &&
 		sleep != NULL
-		);
-	
+	);
+
 	stepper->sleep_duration = sleep_duration;
 	stepper->now_max = now_max;
 	stepper->now = now;
 	stepper->sleep = sleep;
-	
+
 	const uint64_t start = now();
 	nanotime_sleep(UINT64_C(0));
 	stepper->zero_sleep_duration = nanotime_interval(start, now(), now_max);
-#ifdef __APPLE__
+	#ifdef __APPLE__
 	stepper->overhead_numer = UINT64_C(1);
 	stepper->overhead_denom = UINT64_C(1);
 	stepper->backoff = UINT64_C(0);
-#endif
+	#endif
 	stepper->accumulator = UINT64_C(0);
-	
+
 	// This should be last here, so the sleep point is close to what it
 	// should be.
 	stepper->sleep_point = now();
@@ -533,14 +549,14 @@ void nanotime_step_init(nanotime_step_data* const stepper, const uint64_t sleep_
 
 bool nanotime_step(nanotime_step_data* const stepper) {
 	assert(stepper != NULL);
-	
+
 	bool slept;
 	if (stepper->accumulator < stepper->sleep_duration) {
 		const uint64_t total_sleep_duration = stepper->sleep_duration - stepper->accumulator;
 		uint64_t current_sleep_duration = total_sleep_duration;
 		const uint64_t shift = UINT64_C(4);
-		
-#ifdef __APPLE__
+
+		#ifdef __APPLE__
 		// Start with a big sleep. This helps reduce CPU/power use vs. many
 		// shorter sleeps. Shorter sleeps are still done below, but this reduces
 		// the number of shorter sleeps. It appears that the actually-slept
@@ -594,8 +610,8 @@ bool nanotime_step(nanotime_step_data* const stepper) {
 			}
 			goto step_end;
 		}
-#endif
-		
+		#endif
+
 		// This has the flavor of Zeno's dichotomous paradox of motion, as it
 		// successively divides the time remaining to sleep, but attempts to
 		// stop short of the deadline to hopefully be able to precisely sleep up
@@ -614,7 +630,7 @@ bool nanotime_step(nanotime_step_data* const stepper) {
 			uint64_t max = stepper->zero_sleep_duration;
 			nanotime_interval(stepper->sleep_point, stepper->now(), stepper->now_max) + max < total_sleep_duration && current_sleep_duration > UINT64_C(0);
 			current_sleep_duration >>= shift
-			) {
+		) {
 			max = stepper->zero_sleep_duration;
 			uint64_t start;
 			while (max < stepper->sleep_duration && nanotime_interval(stepper->sleep_point, start = stepper->now(), stepper->now_max) + max < total_sleep_duration) {
@@ -625,7 +641,7 @@ bool nanotime_step(nanotime_step_data* const stepper) {
 				}
 			}
 		}
-		
+
 		{
 			// After (hopefully) stopping short of the deadline by a small
 			// amount, do small sleeps here to get closer to the deadline, but
@@ -642,24 +658,24 @@ bool nanotime_step(nanotime_step_data* const stepper) {
 				}
 			}
 		}
-		
-#ifdef __APPLE__
-	step_end:
-#endif
-	{
-		// Finally, do a busyloop to precisely sleep up to the
-		// deadline. The code above this loop attempts to reduce the
-		// remaining time to sleep to a minimum via process-yielding
-		// sleeps, so the amount of time spent spinning here is
-		// hopefully quite low.
-		uint64_t current_time;
-		uint64_t accumulated;
-		while ((accumulated = nanotime_interval(stepper->sleep_point, current_time = stepper->now(), stepper->now_max)) < total_sleep_duration);
-		
-		stepper->accumulator += accumulated;
-		stepper->sleep_point = current_time;
-		slept = true;
-	}
+
+		#ifdef __APPLE__
+		step_end:
+		#endif
+		{
+			// Finally, do a busyloop to precisely sleep up to the
+			// deadline. The code above this loop attempts to reduce the
+			// remaining time to sleep to a minimum via process-yielding
+			// sleeps, so the amount of time spent spinning here is
+			// hopefully quite low.
+			uint64_t current_time;
+			uint64_t accumulated;
+			while ((accumulated = nanotime_interval(stepper->sleep_point, current_time = stepper->now(), stepper->now_max)) < total_sleep_duration);
+
+			stepper->accumulator += accumulated;
+			stepper->sleep_point = current_time;
+			slept = true;
+		}
 	}
 	else {
 		slept = false;

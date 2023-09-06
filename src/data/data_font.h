@@ -23,17 +23,18 @@
  * SOFTWARE.
  */
 
-#include "file/file_type_manager.h"
+#include "data/data_type_manager.h"
 #include "util/font.h"
-#include "opengl/opengl.h"
 #include <stdint.h>
+
+typedef struct data_object data_object;
 
 /*
  * A bitmap font.
  */
-typedef struct file_font_struct {
+typedef struct data_font_object {
 	font_struct* font;
-	GLuint* textures;
-} file_font_struct;
+	const data_object** textures;
+} data_font_object;
 
-extern const file_type_manager_struct file_type_manager_font;
+extern const data_type_manager data_type_manager_font;
