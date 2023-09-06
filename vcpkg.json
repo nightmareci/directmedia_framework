@@ -1,0 +1,12 @@
+{
+  "name": "skill-clear",
+  "builtin-baseline": "9edb1b8e590cc086563301d735cae4b6e732d2d2",
+  "dependencies": [
+    "sdl2",
+    "sdl2-image",
+    {
+      "name": "sdl2-mixer",
+      "features": [ "libmodplug" ]
+    }
+  ]
+}
