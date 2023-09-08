@@ -25,5 +25,6 @@
 /out
 /CMakeLists.txt.user
 /CMakeSettings.json
+/*.kdev4
 /build*
 /save
