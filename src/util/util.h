@@ -78,9 +78,9 @@ size_t mem_total();
 #define mem_free SDL_free
 
 /*
- * Standard C aligned allocation isn't supported by Windows MSVC due to Windows'
+ * Standard C aligned allocation isn't supported by Windows CRT due to Windows'
  * standard C free being unable to reclaim aligned-allocated memory, so we have
- * to use mem_aligned_free for portability.
+ * to use real_aligned_free for portability.
  */
 #ifdef _WIN32
 #define mem_aligned_alloc(alignment, size) _aligned_malloc((size), (alignment))

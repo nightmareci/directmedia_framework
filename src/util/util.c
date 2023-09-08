@@ -190,6 +190,13 @@ void* SDLCALL mem_calloc(size_t nmemb, size_t size) {
 
 void* SDLCALL mem_realloc(void* mem, size_t size) {
 	if (size <= mem_left()) {
+		if (mem != NULL) {
+			const size_t old_size = mem_sizeof(mem);
+			if (old_size == 0u) {
+				return NULL;
+			}
+			total_alloc_sub(mem);
+		}
 		void* const realloc_mem = orig_realloc(mem, size);
 		if (realloc_mem != NULL) {
 			if (!total_alloc_add(realloc_mem)) {
