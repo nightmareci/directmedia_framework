@@ -31,4 +31,16 @@ typedef struct data_object data_object;
 typedef struct data_type_manager {
 	bool (* create)(data_object* const data, SDL_RWops* const rwops);
 	bool (* destroy)(data_object* const data);
+	bool (* destroy_by_dict)(void* const data);
 } data_type_manager;
+
+#define DATA_TYPE_MANAGER_DEFINITION(manager_name, create_func, destroy_func) \
+static bool manager_name##_destroy_by_dict(void* const data) { \
+	return destroy_func((data_object*)data); \
+} \
+\
+const data_type_manager manager_name = { \
+	.create = create_func, \
+	.destroy = destroy_func, \
+	.destroy_by_dict = manager_name##_destroy_by_dict \
+};

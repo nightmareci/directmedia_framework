@@ -27,14 +27,6 @@
 #include "SDL_image.h"
 #include "SDL_surface.h"
 
-static bool create(data_object* const data, SDL_RWops* const rwops);
-static bool destroy(data_object* const data);
-
-const data_type_manager data_type_manager_texture = {
-	.create = create,
-	.destroy = destroy
-};
-
 static bool create(data_object* const data, SDL_RWops* const rwops) {
 	data->texture = mem_calloc(1u, sizeof(data_texture_object));
 	if (data->texture == NULL) {
@@ -89,3 +81,8 @@ static bool destroy(data_object* const data) {
 
 	return true;
 }
+
+static bool create(data_object* const data, SDL_RWops* const rwops);
+static bool destroy(data_object* const data);
+
+DATA_TYPE_MANAGER_DEFINITION(data_type_manager_texture, create, destroy);

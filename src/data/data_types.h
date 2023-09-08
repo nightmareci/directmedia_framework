@@ -28,7 +28,6 @@
 #include "data/data_font.h"
 #include "data/data_sound.h"
 #include "data/data_music.h"
-#include "SDL_mixer.h"
 
 typedef enum data_type {
 	/*

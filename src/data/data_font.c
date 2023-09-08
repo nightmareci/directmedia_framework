@@ -27,14 +27,6 @@
 #include "util/util.h"
 #include "util/string_util.h"
 
-static bool create(data_object* const data, SDL_RWops* const rwops);
-static bool destroy(data_object* const data);
-
-const data_type_manager data_type_manager_font = {
-	.create = create,
-	.destroy = destroy
-};
-
 static bool create(data_object* const data, SDL_RWops* const rwops) {
 	const Sint64 size = SDL_RWsize(rwops);
 	if (size <= 0) {
@@ -128,3 +120,5 @@ static bool destroy(data_object* const data) {
 
 	return status;
 }
+
+DATA_TYPE_MANAGER_DEFINITION(data_type_manager_font, create, destroy);

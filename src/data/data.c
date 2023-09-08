@@ -273,7 +273,7 @@ const data_object* data_cache_get(data_cache_object* const cache, const data_typ
 		return NULL;
 	}
 
-	success = dict_set(cache->data, key, key_size, (void*)data, sizeof(data), type_managers[type]->destroy, NULL);
+	success = dict_set(cache->data, key, key_size, (void*)data, sizeof(data), type_managers[type]->destroy_by_dict, NULL);
 	if (!success) {
 		type_managers[type]->destroy((void*)data);
 		mem_free(key);
@@ -429,7 +429,7 @@ bool data_save(data_cache_object*const cache, const data_type type, const char*c
 			return false;
 		}
 
-		const bool success = dict_set(cache->data, key, key_size, (void*)data, sizeof(data), type_managers[type]->destroy, NULL);
+		const bool success = dict_set(cache->data, key, key_size, (void*)data, sizeof(data), type_managers[type]->destroy_by_dict, NULL);
 		if (!success) {
 			mem_free(key);
 			type_managers[type]->destroy((void*)data);
@@ -454,7 +454,7 @@ bool data_cache_add(const data_object* const data) {
 		return false;
 	}
 
-	const bool success = dict_set(data->cache->data, key, key_size, (void*)data, sizeof(data), type_managers[data->id.type]->destroy, NULL);
+	const bool success = dict_set(data->cache->data, key, key_size, (void*)data, sizeof(data), type_managers[data->id.type]->destroy_by_dict, NULL);
 	if (!success) {
 		mem_free(key);
 		return false;

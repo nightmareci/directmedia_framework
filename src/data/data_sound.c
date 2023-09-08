@@ -25,14 +25,6 @@
 #include "data/data.h"
 #include "util/util.h"
 
-static bool create(data_object* const data, SDL_RWops* const rwops);
-static bool destroy(data_object* const data);
-
-const data_type_manager data_type_manager_sound = {
-	.create = create,
-	.destroy = destroy
-};
-
 static bool create(data_object* const data, SDL_RWops* const rwops) {
 	Mix_Chunk* const sound = Mix_LoadWAV_RW(rwops, 0);
 	if (sound == NULL) {
@@ -50,3 +42,9 @@ static bool destroy(data_object* const data) {
 
 	return true;
 }
+
+
+static bool create(data_object* const data, SDL_RWops* const rwops);
+static bool destroy(data_object* const data);
+
+DATA_TYPE_MANAGER_DEFINITION(data_type_manager_sound, create, destroy);
