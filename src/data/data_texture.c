@@ -27,16 +27,15 @@
 #include "SDL_image.h"
 #include "SDL_surface.h"
 
-static bool create(void* const data_param, SDL_RWops* const rwops);
-static bool destroy(void* const data_param);
+static bool create(data_object* const data, SDL_RWops* const rwops);
+static bool destroy(data_object* const data);
 
 const data_type_manager data_type_manager_texture = {
 	.create = create,
 	.destroy = destroy
 };
 
-static bool create(void* const data_param, SDL_RWops* const rwops) {
-	data_object* const data = (data_object*)data_param;
+static bool create(data_object* const data, SDL_RWops* const rwops) {
 	data->texture = mem_calloc(1u, sizeof(data_texture_object));
 	if (data->texture == NULL) {
 		fprintf(stderr, "Error allocating data while loading a texture\n");
@@ -82,9 +81,7 @@ static bool create(void* const data_param, SDL_RWops* const rwops) {
 	return true;
 }
 
-static bool destroy(void* const data_param) {
-	data_object* const data = (data_object*)data_param;
-
+static bool destroy(data_object* const data) {
 	glDeleteTextures(1, &data->texture->name);
 	mem_free((void*)data->id.filename);
 	mem_free((void*)data->texture);

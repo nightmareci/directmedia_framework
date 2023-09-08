@@ -26,7 +26,9 @@
 #include "SDL_rwops.h"
 #include <stdbool.h>
 
+typedef struct data_object data_object;
+
 typedef struct data_type_manager {
-	bool (* create)(void* const data_param, SDL_RWops* const rwops);
-	bool (* destroy)(void* const data_param);
+	bool (* create)(data_object* const data, SDL_RWops* const rwops);
+	bool (* destroy)(data_object* const data);
 } data_type_manager;

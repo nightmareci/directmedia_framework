@@ -26,4 +26,6 @@
 #include "data/data_type_manager.h"
 #include "SDL_mixer.h"
 
+typedef Mix_Chunk data_sound_object;
+
 extern const data_type_manager data_type_manager_sound;

@@ -27,8 +27,6 @@
 #include "util/font.h"
 #include <stdint.h>
 
-typedef struct data_object data_object;
-
 /*
  * A bitmap font.
  */

@@ -25,25 +25,21 @@
 #include "data/data.h"
 #include "util/util.h"
 
-static bool create(void* const data_param, SDL_RWops* const rwops);
-static bool destroy(void* const data_param);
+static bool create(data_object* const data, SDL_RWops* const rwops);
+static bool destroy(data_object* const data);
 
 const data_type_manager data_type_manager_music = {
 	.create = create,
 	.destroy = destroy
 };
 
-static bool create(void* const data_param, SDL_RWops* const rwops) {
-	data_object* const data = (data_object*)data_param;
-
+static bool create(data_object* const data, SDL_RWops* const rwops) {
 	data->music = Mix_LoadMUS_RW(rwops, 0);
 
 	return data->music != NULL;
 }
 
-static bool destroy(void* const data_param) {
-	data_object* const data = (data_object*)data_param;
-
+static bool destroy(data_object* const data) {
 	Mix_FreeMusic(data->music);
 	mem_free((void*)data->id.filename);
 	mem_free((void*)data);

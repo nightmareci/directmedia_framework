@@ -26,17 +26,15 @@
 #include "util/util.h"
 #include <stdlib.h>
 
-static bool create(void* const data_param, SDL_RWops* const rwops);
-static bool destroy(void* const data_param);
+static bool create(data_object* const data, SDL_RWops* const rwops);
+static bool destroy(data_object* const data);
 
 const data_type_manager data_type_manager_raw = {
 	.create = create,
 	.destroy = destroy
 };
 
-static bool create(void* const data_param, SDL_RWops* const rwops) {
-	data_object* const data = (data_object*)data_param;
-
+static bool create(data_object* const data, SDL_RWops* const rwops) {
 	const Sint64 size = SDL_RWsize(rwops);
 	if (size <= 0) {
 		return false;
@@ -61,9 +59,7 @@ static bool create(void* const data_param, SDL_RWops* const rwops) {
 	return true;
 }
 
-static bool destroy(void* const data_param) {
-	data_object* const data = (data_object*)data_param;
-
+static bool destroy(data_object* const data) {
 	mem_aligned_free((void*)data->raw);
 	mem_free((void*)data->id.filename);
 	mem_free((void*)data);

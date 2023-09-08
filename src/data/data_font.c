@@ -27,17 +27,15 @@
 #include "util/util.h"
 #include "util/string_util.h"
 
-static bool create(void* const data_param, SDL_RWops* const rwops);
-static bool destroy(void* const data_param);
+static bool create(data_object* const data, SDL_RWops* const rwops);
+static bool destroy(data_object* const data);
 
 const data_type_manager data_type_manager_font = {
 	.create = create,
 	.destroy = destroy
 };
 
-static bool create(void* const data_param, SDL_RWops* const rwops) {
-	data_object* const data = (data_object*)data_param;
-
+static bool create(data_object* const data, SDL_RWops* const rwops) {
 	const Sint64 size = SDL_RWsize(rwops);
 	if (size <= 0) {
 		return false;
@@ -118,9 +116,7 @@ static bool create(void* const data_param, SDL_RWops* const rwops) {
 	return true;
 }
 
-static bool destroy(void* const data_param) {
-	data_object* const data = (data_object*)data_param;
-
+static bool destroy(data_object* const data) {
 	for (size_t page = 0u; page < data->font->font->num_pages; page++) {
 		data_unload(data->font->textures[page]);
 	}

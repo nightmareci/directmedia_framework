@@ -123,7 +123,7 @@ typedef struct data_object {
 		data_raw_object* raw;
 		data_font_object* font;
 		data_texture_object* texture;
-		Mix_Chunk* sound;
-		Mix_Music* music;
+		data_sound_object* sound;
+		data_music_object* music;
 	};
 } data_object;
