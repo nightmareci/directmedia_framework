@@ -28,9 +28,8 @@
  * and always on top of what was previously drawn, as it disables and makes no
  * use of the depth buffer; thus, this graphics API is suitable for drawing a 2D
  * HUD on top of a previously-drawn 3D scene. It's best to use a single
- * sprites_type object for all sprite graphics if possible, as the internals of
- * the API can better utilize system resources, especially memory, with such
- * usage.
+ * sprites_object for all sprite graphics if possible, as the internals of the
+ * API can better utilize system resources, especially memory, with such usage.
  */
 
 #include "render/render_types.h"
