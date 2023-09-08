@@ -24,11 +24,15 @@
  */
 
 /*
- * Single producer thread, single consumer thread concurrent queue. When
- * compiled in debug mode, the enqueue and dequeue functions verify the correct
- * threads are using the queue; the first thread to enqueue becomes the
- * valid-producer and the first thread to dequeue becomes the valid-consumer.
+ * Multiple producer threads, single consumer thread concurrent queue. When
+ * compiled in debug mode, the dequeue and destroy functions verify the correct
+ * thread is using the queue; the first thread to dequeue or destroy becomes the
+ * valid-consumer. Only use this queue type when you need to use it
+ * concurrently; it has higher runtime overhead than the single-threaded-only
+ * queue type (util/queue.h).
  */
+
+// TODO: Change the implementation to support multiple consumer threads.
 
 #include <stdbool.h>
 
@@ -42,12 +46,12 @@ conqueue_object* conqueue_create();
 
 /*
  * Destroy a queue object. Also empties the queue, if there are values already
- * enqueued.
+ * enqueued. This function must only be called by the consumer thread.
  */
 void conqueue_destroy(conqueue_object* const queue);
 
 /*
- * Enqueues a value pointer onto the queue. Returns true if enqueueing was
+ * Enqueue a value pointer onto the queue. Returns true if enqueueing was
  * successful, otherwise returns false in the case of fatal errors. Because
  * conqueue_dequeue returns NULL for an empty queue, it is invalid to attempt to
  * enqueue NULL.
@@ -55,7 +59,8 @@ void conqueue_destroy(conqueue_object* const queue);
 bool conqueue_enqueue(conqueue_object* const queue, void* const value);
 
 /*
- * Dequeues a value pointer from the queue. Returns a non-NULL value pointer if
- * successful, otherwise returns NULL if the queue is now empty.
+ * Dequeue a value pointer from the queue. Returns a non-NULL value pointer if
+ * successful, otherwise returns NULL if the queue is now empty. This function
+ * must only be called by the consumer thread.
  */
 void* conqueue_dequeue(conqueue_object* const queue);

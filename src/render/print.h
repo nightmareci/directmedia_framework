@@ -31,7 +31,7 @@
  * limitation also requires that the font used for rendering is a Unicode font.
  *
  * print_draw must be called for the text to actually be rendered; the other
- * functions just modify data in the print_data_struct object, and do no actual
+ * functions just modify data in the print_data_object, and do no actual
  * rendering. You could call it once for each render update.
  *
  * It requires that an OpenGL context be current while it's being used; the

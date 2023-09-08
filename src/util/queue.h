@@ -23,6 +23,11 @@
  * SOFTWARE.
  */
 
+/*
+ * Single-threaded-only queue. Only if you need to access the queue concurrently in
+ * multiple threads, use the conqueue type (util/conqueue.h).
+ */
+
 #include <stdbool.h>
 
 typedef struct queue_object queue_object;
@@ -40,7 +45,7 @@ queue_object* queue_create();
 void queue_destroy(queue_object* const queue);
 
 /*
- * Enqueues a value pointer onto the queue. Returns true if enqueueing was
+ * Enqueue a value pointer onto the queue. Returns true if enqueueing was
  * successful, otherwise returns false in the case of fatal errors. Because
  * queue_dequeue returns NULL for an empty queue, it is invalid to attempt to
  * enqueue NULL.
@@ -48,12 +53,12 @@ void queue_destroy(queue_object* const queue);
 bool queue_enqueue(queue_object* const queue, void* const value);
 
 /*
- * Dequeues a value pointer from the queue. Returns a non-NULL value pointer if
+ * Dequeue a value pointer from the queue. Returns a non-NULL value pointer if
  * successful, otherwise returns NULL if the queue is now empty.
  */
 void* queue_dequeue(queue_object* const queue);
 
 /*
- * Empties out the internal queue node cache.
+ * Empty out the internal queue node cache.
  */
 void queue_empty_cache(queue_object* const queue);

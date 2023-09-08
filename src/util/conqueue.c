@@ -41,12 +41,36 @@ struct conqueue_object {
 	node_object* dequeue;
 
 	#ifndef NDEBUG
-	SDL_atomic_t producer_set;
-	SDL_threadID producer;
 	SDL_atomic_t consumer_set;
 	SDL_threadID consumer;
 	#endif
 };
+
+#ifndef NDEBUG
+static void assert_current_thread_is_consumer(conqueue_object* const queue) {
+	SDL_MemoryBarrierRelease();
+	SDL_bool set = SDL_AtomicCAS(&queue->consumer_set, 0, 1);
+	SDL_MemoryBarrierAcquire();
+	if (set) {
+		queue->consumer = SDL_ThreadID();
+
+		SDL_MemoryBarrierRelease();
+		SDL_AtomicSet(&queue->consumer_set, 2);
+	}
+	while (true) {
+		const int set = SDL_AtomicGet(&queue->consumer_set);
+		SDL_MemoryBarrierAcquire();
+		if (set == 2) {
+			break;
+		}
+	}
+	assert(SDL_ThreadID() == queue->consumer);
+}
+
+#else
+#define assert_current_thread_is_consumer(queue) ((void)0)
+
+#endif
 
 void* conqueue_dequeue(conqueue_object* const queue);
 
@@ -68,19 +92,20 @@ conqueue_object* conqueue_create() {
 
 	#ifndef NDEBUG
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSet(&queue->producer_set, 0);
-
-	SDL_MemoryBarrierRelease();
 	SDL_AtomicSet(&queue->consumer_set, 0);
 	#endif
 
-	queue->enqueue = queue->dequeue = node;
+	SDL_MemoryBarrierRelease();
+	SDL_AtomicSetPtr((void**)&queue->enqueue, node);
+
+	queue->dequeue = node;
 
 	return queue;
 }
 
 void conqueue_destroy(conqueue_object* const queue) {
 	assert(queue != NULL);
+	assert_current_thread_is_consumer(queue);
 
 	while (conqueue_dequeue(queue) != NULL) continue;
 	mem_free(queue->dequeue);
@@ -89,26 +114,6 @@ void conqueue_destroy(conqueue_object* const queue) {
 
 bool conqueue_enqueue(conqueue_object* const queue, void* const value) {
 	assert(queue != NULL && value != NULL);
-
-	#ifndef NDEBUG
-	SDL_MemoryBarrierRelease();
-	SDL_bool set = SDL_AtomicCAS(&queue->producer_set, 0, 1);
-	SDL_MemoryBarrierAcquire();
-	if (set) {
-		queue->producer = SDL_ThreadID();
-
-		SDL_MemoryBarrierRelease();
-		SDL_AtomicSet(&queue->producer_set, 2);
-	}
-	while (true) {
-		const int set = SDL_AtomicGet(&queue->producer_set);
-		SDL_MemoryBarrierAcquire();
-		if (set == 2) {
-			break;
-		}
-	}
-	assert(SDL_ThreadID() == queue->producer);
-	#endif
 
 	node_object* node = mem_malloc(sizeof(node_object));
 	if (node == NULL) {
@@ -119,37 +124,34 @@ bool conqueue_enqueue(conqueue_object* const queue, void* const value) {
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&node->next, NULL);
 
-	node_object* const enqueue = queue->enqueue;
+	node_object* enqueue;
+	SDL_bool enqueue_next;
+
+	do {
+		enqueue = SDL_AtomicGetPtr((void**)&queue->enqueue);
+		SDL_MemoryBarrierAcquire();
+
+		node_object* const next = SDL_AtomicGetPtr((void**)&enqueue->next);
+		SDL_MemoryBarrierAcquire();
+
+		if (next != NULL) {
+			continue;
+		}
+
+		SDL_MemoryBarrierRelease();
+		enqueue_next = SDL_AtomicCASPtr((void**)&enqueue->next, next, node);
+		SDL_MemoryBarrierAcquire();
+	} while (!enqueue_next);
 
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSetPtr((void**)&enqueue->next, node);
-
-	queue->enqueue = node;
+	SDL_AtomicCASPtr((void**)&queue->enqueue, enqueue, node);
+	SDL_MemoryBarrierAcquire();
 	return true;
 }
 
 void* conqueue_dequeue(conqueue_object* const queue) {
 	assert(queue != NULL);
-
-	#ifndef NDEBUG
-	SDL_MemoryBarrierRelease();
-	SDL_bool set = SDL_AtomicCAS(&queue->consumer_set, 0, 1);
-	SDL_MemoryBarrierAcquire();
-	if (set) {
-		queue->consumer = SDL_ThreadID();
-
-		SDL_MemoryBarrierRelease();
-		SDL_AtomicSet(&queue->consumer_set, 2);
-	}
-	while (true) {
-		const int set = SDL_AtomicGet(&queue->consumer_set);
-		SDL_MemoryBarrierAcquire();
-		if (set == 2) {
-			break;
-		}
-	}
-	assert(SDL_ThreadID() == queue->consumer);
-	#endif
+	assert_current_thread_is_consumer(queue);
 
 	node_object* const dequeue = queue->dequeue;
 

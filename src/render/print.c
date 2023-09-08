@@ -297,7 +297,7 @@ bool print_text(print_data_object* const data, data_font_object* const font, con
 			continue;
 		}
 
-		const font_char_struct* font_c;
+		const font_char_object* font_c;
 		if (!font_char_get(font->font, c, &font_c)) {
 			continue;
 		}

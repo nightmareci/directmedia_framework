@@ -33,7 +33,7 @@ typedef struct data_object data_object;
  * A bitmap font.
  */
 typedef struct data_font_object {
-	font_struct* font;
+	font_object* font;
 	const data_object** textures;
 } data_font_object;
 

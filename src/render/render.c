@@ -107,14 +107,14 @@ bool render_clear(const uint8_t shade) {
 	return frames_enqueue_command(render_frames, &funcs, (void*)(uintptr_t)shade);
 }
 
-typedef struct render_sprites_struct {
+typedef struct render_sprites_object {
 	const char* sheet_filename;
 	size_t num_added;
 	sprite_type* added_sprites;
-} render_sprites_struct;
+} render_sprites_object;
 
 static bool render_sprites_update_func(void* const state) {
-	render_sprites_struct* const s = state;
+	render_sprites_object* const s = state;
 	if (sprites == NULL) {
 		sprites = sprites_create(0u);
 		if (sprites == NULL) {
@@ -128,7 +128,7 @@ static bool render_sprites_update_func(void* const state) {
 }
 
 static bool render_sprites_draw_func(void* const state) {
-	render_sprites_struct* const s = state;
+	render_sprites_object* const s = state;
 	const data_object* const data = data_cache_get(data_cache, DATA_TYPE_TEXTURE, DATA_PATH_RESOURCE, s->sheet_filename, NULL, false);
 	if (data == NULL) {
 		return false;
@@ -137,7 +137,7 @@ static bool render_sprites_draw_func(void* const state) {
 }
 
 static void render_sprites_destroy_func(void* const state) {
-	render_sprites_struct* const s = state;
+	render_sprites_object* const s = state;
 	mem_free(s->added_sprites);
 	mem_free(s);
 }
@@ -152,7 +152,7 @@ bool render_sprites(const char* const sheet_filename, const size_t num_added, co
 		return true;
 	}
 
-	render_sprites_struct* const s = mem_malloc(sizeof(render_sprites_struct));
+	render_sprites_object* const s = mem_malloc(sizeof(render_sprites_object));
 	if (s == NULL) {
 		return false;
 	}
@@ -181,15 +181,15 @@ bool render_sprites(const char* const sheet_filename, const size_t num_added, co
 	return true;
 }
 
-typedef struct render_print_struct {
+typedef struct render_print_object {
 	const char* font_filename;
 	float x;
 	float y;
 	char* text;
-} render_print_struct;
+} render_print_object;
 
 static bool render_print_draw_func(void* const state) {
-	render_print_struct* const p = state;
+	render_print_object* const p = state;
 	const data_object* const data = data_cache_get(data_cache, DATA_TYPE_FONT, DATA_PATH_RESOURCE, p->font_filename, NULL, false);
 	if (data == NULL) {
 		return false;
@@ -205,13 +205,13 @@ static bool render_print_draw_func(void* const state) {
 }
 
 static void render_print_destroy_func(void* const state) {
-	render_print_struct* const p = state;
+	render_print_object* const p = state;
 	mem_free((char*)p->text);
 	mem_free(p);
 }
 
 bool render_print(const char* const font_filename, const float x, const float y, const char* const format, ...) {
-	render_print_struct* const p = mem_malloc(sizeof(render_print_struct));
+	render_print_object* const p = mem_malloc(sizeof(render_print_object));
 	if (p == NULL) {
 		return false;
 	}
