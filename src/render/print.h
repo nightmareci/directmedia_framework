@@ -23,69 +23,21 @@
  * SOFTWARE.
  */
 
-#include "data/data_font.h"
+#include "render/layers.h"
+#include "data/data_types.h"
 #include <stddef.h>
 
 /*
- * Simple bitmap font renderer. Only supports rendering UTF-8 encoded text; that
- * limitation also requires that the font used for rendering is a Unicode font.
- *
- * print_draw must be called for the text to actually be rendered; the other
- * functions just modify data in the print_data_object, and do no actual
- * rendering. You could call it once for each render update.
- *
- * It requires that an OpenGL context be current while it's being used; the
- * context only has to be current before a call of print_init, then the other
- * print_* functions can be used, finishing with print_deinit, at which point
- * the context doesn't have to be current.
+ * Generate graphical text using a bitmap font. Only supports UTF-8 fonts and
+ * text.
  */
-
-typedef struct print_data_object print_data_object;
-
-/*
- * Initialize the printing subsystem.
- */
-bool print_init();
-
-/*
- * Deinitialize the printing subsystem.
- */
-void print_deinit();
-
-/*
- * Create a print data object for printing.
- */
-print_data_object* print_data_create();
-
-/*
- * Destroy data object for printing.
- */
-void print_data_destroy(print_data_object* const data);
-
-/*
- * Reset the text currently to be printed in the print data to no text. Doesn't
- * change the size of the data. Call this first, then print_data_size_shrink, to
- * free the memory associated with the print data.
- */
-bool print_size_reset(print_data_object* const data);
-
-/*
- * Shrink the data associated with the print data to the size that fits only the
- * text currently to be printed.
- */
-bool print_size_shrink(print_data_object* const data);
 
 /*
  * Print the text at the requested position.
  */
-bool print_text(print_data_object* const data, data_font_object* const font, const float x, const float y, const char* const text);
+bool print_layer_text(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const text);
 
 /*
  * Print the formatted text at the requested position.
  */
-bool print_formatted(print_data_object* const data, data_font_object* const font, const float x, const float y, const char* const format, ...);
-
-/*
- * Draw all text on screen.
- */
-bool print_draw(print_data_object* const data, const float width, const float height);
+bool print_layer_formatted(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const format, ...);

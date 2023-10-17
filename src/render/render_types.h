@@ -27,6 +27,6 @@
 #include "data/data_texture.h"
 
 typedef struct sprite_type {
-	vec4 dst;
 	vec4 src;
+	vec4 dst;
 } sprite_type;

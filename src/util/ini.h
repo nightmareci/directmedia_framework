@@ -24,9 +24,9 @@
  */
 
 /*
- * INI file loading library. This library only interprets the raw INI text
- * data, does no file handling, and is pure in-memory, portable code; file
- * management must be done externally. This library is not thread-safe.
+ * INI interpreting library. This library only interprets the raw INI text data,
+ * does no file handling, and is pure in-memory, portable code; file management
+ * must be done externally. This library is not thread-safe.
  */
 
 #include <stddef.h>

@@ -1,19 +1,19 @@
 #pragma once
 /*
  * MIT License
- * 
+ *
  * Copyright (c) 2023 Brandon McGriff <nightmareci@gmail.com>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,24 +23,34 @@
  * SOFTWARE.
  */
 
+/*
+ * Simple layers-of-sprites graphics API.
+ */
+
 #include "render/render_types.h"
-#include "render/frames.h"
-#include <stddef.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
-bool render_init(frames_object* const frames);
+typedef struct layers_object layers_object;
 
-void render_deinit();
+layers_object* layers_create(const size_t num_layers);
+void layers_destroy(layers_object* const layers);
 
-bool render_start();
+#if 0
+bool layers_shrink(layers_object* const layers); // TODO
+bool layers_resize_num_layers(layers_object* const layers, const size_t num_layers); // TODO
+bool layers_shrink_num_layers(layers_object* const layers); // TODO
+bool layers_resize_layer(layers_object* const layers, const size_t layer_index, const size_t num_sprites); // TODO
+bool layers_shrink_layer(layers_object* const layers, const size_t layer_index); // TODO
+#endif
 
-bool render_end();
+void layers_restart(layers_object* const layers);
 
-bool render_clear(const uint8_t red, const uint8_t green, const uint8_t blue, const uint8_t alpha);
+/*
+ * Add sprites to a layer. Sprites added to a layer are drawn in submission
+ * order. And layers are drawn from least-layer-index-to-greatest,
+ * back-to-front.
+ */
+bool layers_sprites_add(layers_object* const layers, data_texture_object* const sheet, const size_t layer_index, const size_t num_added, sprite_type* const added_sprites);
 
-bool render_sprites(const char* const sheet_filename, const size_t layer_index, const size_t num_added, const sprite_type* const added_sprites);
-
-bool render_text(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const text);
-
-bool render_printf(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const format, ...);
+bool layers_draw(layers_object* const layers);

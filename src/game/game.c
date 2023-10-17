@@ -56,6 +56,10 @@ bool game_init(uint64_t* const tick_rate) {
 }
 
 bool game_update(bool* const quit_now) {
+	if (!render_start()) {
+		return false;
+	}
+
 	*quit_now = false;
 
 	// TODO: Implement a higher-level input API that doesn't present any device
@@ -80,12 +84,13 @@ bool game_update(bool* const quit_now) {
 	last_tick_time = current_tick_time;
 	ticks++;
 
-	if (!render_clear((uint8_t)((sinf(M_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f) * 255.0f))) {
+	const uint8_t shade = (uint8_t)((sinf(M_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f) * 255.0f);
+	if (!render_clear(shade, shade, shade, 255u)) {
 		return false;
 	}
 
 	if (!reset_average) {
-		if (!render_print("font.fnt", 8.0f, 8.0f, "\
+		if (!render_printf("font.fnt", 1u, 8.0f, 8.0f, "\
 			Ticks: %" PRIu64 "\n\n\
 			Current tick rate: %.9f\n\n\
 			Average tick rate: %.9f\n\n\
@@ -107,7 +112,7 @@ bool game_update(bool* const quit_now) {
 		reset_average = false;
 		average_ticks = 0u;
 		average_duration = 0u;
-		if (!render_print("font.fnt", 8.0f, 8.0f, "\
+		if (!render_printf("font.fnt", 1u, 8.0f, 8.0f, "\
 			Ticks: %" PRIu64 "\n\n\
 			Current tick rate: %.9f\n\n\
 			Average tick rate: N/A\n\n\
@@ -125,11 +130,22 @@ bool game_update(bool* const quit_now) {
 		}
 	}
 
-	const static sprite_type sprite = {
-		.dst = { 640.0f / 2.0f, 480.0f / 2.0f + 60.0f, 120.0f, 120.0f },
-		.src = { 0.0f, 0.0f, 16.0f, 16.0f }
+	sprite_type sprites[] = {
+		{
+			.src = { 0.0f, 0.0f, 16.0f, 16.0f },
+			.dst = { 16.0f, 16.0f, 120.0f, 120.0f }
+		},
+		{
+			.src = { 0.0f, 0.0f, 16.0f, 16.0f },
+			.dst = { 16.0f + 120.0f - 30.0f, 16.0f + 120.0f - 30.0f, 60.0f, 60.0f }
+		}
 	};
-	if (!render_sprites("sprite.png", 1u, &sprite)) {
+
+	if (!render_sprites("sprite.png", 0u, 2u, sprites)) {
+		return false;
+	}
+
+	if (!render_end()) {
 		return false;
 	}
 

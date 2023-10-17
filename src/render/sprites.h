@@ -24,12 +24,21 @@
  */
 
 /*
- * Simple sprite graphics API. Only sprites_draw actually submits draw calls,
- * and always on top of what was previously drawn, as it disables and makes no
- * use of the depth buffer; thus, this graphics API is suitable for drawing a 2D
- * HUD on top of a previously-drawn 3D scene. It's best to use a single
- * sprites_object for all sprite graphics if possible, as the internals of the
- * API can better utilize system resources, especially memory, with such usage.
+ * Simple sprite graphics API. First, you should probably call sprites_restart
+ * before calling any other methods at the start of every frame. Then, call the
+ * functions other than sprites_restart and sprites_draw to prepare what you
+ * want drawn. Then, after the desired content to draw has been submitted, call
+ * sprites_draw once at the end of a frame.
+ *
+ * sprites_resize and sprites_shrink can optionally be used for a degree of
+ * management of the memory in use by a sprites_object. The library internally
+ * expands the amount of memory used to accommodate what is required, while also
+ * attempting reuse of memory between calls of sprites_restart and sprites_draw;
+ * if you never call sprites_resize and sprites_shrink, the memory used will
+ * only grow as required, and no larger. For example, after a context change in
+ * the application, if you wanted to reset the amount of memory the
+ * sprites_object is using to a minimum, call sprites_resize with num_sprites as
+ * 0.
  */
 
 #include "render/render_types.h"
@@ -40,12 +49,14 @@ typedef struct sprites_object sprites_object;
 
 sprites_object* sprites_create(const size_t initial_size);
 void sprites_destroy(sprites_object* const sprites);
-bool sprites_resize(sprites_object* const sprites, const size_t new_size);
+
+bool sprites_resize(sprites_object*const sprites, const size_t num_sprites);
 bool sprites_shrink(sprites_object* const sprites);
+
 void sprites_restart(sprites_object* const sprites);
 
 void sprites_screen_reset(sprites_object* const sprites);
 void sprites_screen_set(sprites_object* const sprites, const float width, const float height);
 
-bool sprites_add(sprites_object* const sprites, const size_t num_added, sprite_type* const added_sprites);
-bool sprites_draw(sprites_object* const sprites, data_texture_object* const sheet);
+bool sprites_add(sprites_object* const sprites, data_texture_object* const sheet, const size_t num_added, sprite_type* const added_sprites);
+bool sprites_draw(sprites_object* const sprites);

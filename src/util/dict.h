@@ -26,6 +26,9 @@
 // TODO: Add a custom value_copy function for copying values alongside the current value_destroy function.
 
 /*
+ * Generic associative array ("dictionary") library. This library is not
+ * thread-safe.
+ *
  * The keys are interpreted as a basic array of data, and should not contain
  * any references to external data; it should be possible to directly do a
  * memcpy of the key in order to fully copy it. But, values can either be basic
@@ -34,11 +37,6 @@
  * entry, provide a value destructor function when you want the value copied by
  * reference and destructed when the dictionary entry containing the value is
  * deleted.
- */
-
-/*
- * Generic associative array ("dictionary") library. This library is not
- * thread-safe.
  */
 
 #include <stddef.h>

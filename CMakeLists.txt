@@ -32,8 +32,6 @@ set(CMAKE_C_STANDARD_REQUIRED TRUE)
 set(SRC "${CMAKE_CURRENT_SOURCE_DIR}")
 set(BIN "${CMAKE_CURRENT_BINARY_DIR}")
 
-include("${SRC}/src/cmake/InstallRuntimeDependencies.cmake")
-
 set(ORG "nightmareci")
 set(EXE "${CMAKE_PROJECT_NAME}")
 set(NAME "Skill Clear")
@@ -68,6 +66,7 @@ set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By defau
 message(STATUS "Build target: ${BUILD_TARGET}")
 
 configure_file("${SRC}/src/main/app_const.c.in" "${BIN}/src/main/app_const.c" @ONLY)
+# TODO: Refactor so headers are precompiled.
 add_executable("${EXE}"
 	# Sources for the game follow. All game sources should be under the
 	# src/game directory, not in any other directories in src/.
@@ -89,12 +88,14 @@ add_executable("${EXE}"
 
 
 	"${SRC}/src/render/frames.h"
+	"${SRC}/src/render/layers.h"
 	"${SRC}/src/render/print.h"
 	"${SRC}/src/render/render.h"
 	"${SRC}/src/render/render_types.h"
 	"${SRC}/src/render/sprites.h"
 
 	"${SRC}/src/render/frames.c"
+	"${SRC}/src/render/layers.c"
 	"${SRC}/src/render/print.c"
 	"${SRC}/src/render/render.c"
 	"${SRC}/src/render/sprites.c"
@@ -226,7 +227,9 @@ target_include_directories("${EXE}" PRIVATE "${SRC}/src" "${BIN}/src")
 # TODO: Add the libraries as Git submodules and include them in the build, but
 # still have the option to use system-installed libraries.
 
-if(MINGW)
+option(USE_PKG_CONFIG "If TRUE, pkg-config will be used for finding packages, rather than CMake find_package." ${MINGW})
+
+if(USE_PKG_CONFIG)
 	# Using find_package for the needed libraries is broken in MSYS2, but
 	# using pkg-config works fine. And we can use the nice IMPORTED_TARGET
 	# feature for cleaner code here, as we already require a sufficient
@@ -272,18 +275,19 @@ if(UNIX)
 		)
 	endif()
 
-	# With Lua, compile-time warnings show up if POSIX features aren't used
-	# on POSIX platforms.
+	# When compiling Lua, compile-time warnings show up if POSIX features aren't
+	# used on POSIX platforms.
 	add_compile_definitions(LUA_USE_POSIX)
 	add_compile_definitions(_POSIX_VERSION=199309L)
 endif()
 
 option(BUNDLE_LIBRARIES "Bundle the libraries needed by the game's executable, for distributable releases.")
 
-# TODO: Generate game data files from data source files at build time into the
-# build directory resource location; install the build directory resource
-# directory into the installed resource location.
+# TODO: Generate game resource files from resource source files at build time
+# into the build directory resource location; install the build directory
+# resource directory into the installed resource location.
 
+include("${SRC}/src/cmake/InstallRuntimeDependencies.cmake")
 if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
 	option(HIDE_WINDOWS_CONSOLE "Hide the Windows console.")
 

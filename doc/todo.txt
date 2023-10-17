@@ -1,0 +1,7 @@
+Implement instance renderer; gives a full interface to do instanced rendering of
+an object (a single set of geometry). Provide some 3D support through the
+instance renderer. Refactor the sprite API to use instanced rendering of a quad
+object internally.
+
+Refactor asserts checking multiple conditions into one assert per condition;
+such a setup directly informs which condition failed.

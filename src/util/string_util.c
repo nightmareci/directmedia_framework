@@ -28,8 +28,11 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stddef.h>
+#include <assert.h>
 
 char* alloc_sprintf(const char* const fmt, ...) {
+	assert(fmt != NULL);
+
 	va_list args_list1;
 	va_start(args_list1, fmt);
 	va_list args_list2;
@@ -55,6 +58,8 @@ char* alloc_sprintf(const char* const fmt, ...) {
 }
 
 char* alloc_vsprintf(const char* const fmt, va_list args) {
+	assert(fmt != NULL);
+
 	va_list args_copy;
 	va_copy(args_copy, args);
 	const int sz = vsnprintf(NULL, 0, fmt, args) + 1;
@@ -78,6 +83,9 @@ char* alloc_vsprintf(const char* const fmt, va_list args) {
 
 #ifndef _WIN32
 int strcmpi(const char* lhs, const char* rhs) {
+	assert(lhs != NULL);
+	assert(rhs != NULL);
+
 	int lhs_lower;
 	int rhs_lower;
 
@@ -94,18 +102,25 @@ int strcmpi(const char* lhs, const char* rhs) {
 #endif
 
 void strtoupper(char* const str, const size_t size) {
+	assert(str != NULL);
+
 	for (size_t i = 0u; i < size; i++) {
 		str[i] = toupper(str[i]);
 	}
 }
 
 void strtolower(char* const str, const size_t size) {
+	assert(str != NULL);
+
 	for (size_t i = 0u; i < size; i++) {
 		str[i] = tolower(str[i]);
 	}
 }
 
 uint32_t utf8_get(const char* const str, size_t* const bytes) {
+	assert(str != NULL);
+	assert(bytes != NULL);
+
 	uint32_t codepoint = 0u;
 	const char* s = str;
 
@@ -140,6 +155,8 @@ uint32_t utf8_get(const char* const str, size_t* const bytes) {
 }
 
 size_t utf8_strlen(const char* const str) {
+	assert(str != NULL);
+
 	size_t len = 0u;
 	size_t bytes;
 	for (

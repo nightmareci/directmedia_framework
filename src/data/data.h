@@ -95,9 +95,10 @@ char* data_directory_get(const data_object* const data);
 /*
  * Save raw data to a file into the save path. The type argument only really
  * matters when add_to_cache is true. The data can be loaded later with a load
- * or get out of the savedata path; you maybe should have always_load of data_cache_get
- * be true for repeatedly modified files, or even only use data_load, like for
- * configuration files. Returns true if saving succeeded, otherwise false.
+ * or get out of the save path; you maybe should have always_load of
+ * data_cache_get be true for repeatedly modified files, or even only use
+ * data_load, like for configuration files. Returns true if saving succeeded,
+ * otherwise false.
  */
 bool data_save(data_cache_object* const cache, const data_type type, const char* const filename, const void* const bytes, const size_t size, const bool add_to_cache);
 

@@ -32,47 +32,60 @@
 #include <float.h>
 #include <assert.h>
 
-static const char* const vertex_src =
-	"#version 330\n"
-	"in vec4 dst;"
-	"in vec4 src;"
-	"out vec2 f_position;"
-	"uniform vec2 screen_dimensions;"
-	"uniform vec2 sheet_dimensions;"
-	"const vec2 vertices[6] = vec2[] ("
-	"	vec2(0.0, 1.0),"
-	"	vec2(1.0, 0.0),"
-	"	vec2(0.0, 0.0),"
-	"	vec2(0.0, 1.0),"
-	"	vec2(1.0, 1.0),"
-	"	vec2(1.0, 0.0)"
-	");"
-	"void main() {"
-	"	gl_Position = vec4(((dst.xy + dst.zw * vertices[gl_VertexID]) * screen_dimensions) * vec2(2.0, -2.0) + vec2(-1.0, 1.0), 0.0, 1.0);"
-	"	f_position = (src.xy + vertices[gl_VertexID] * src.zw) * sheet_dimensions;"
-	"}";
+static const char* const vertex_src = "\
+#version 330\n\
+in vec4 dst;\
+in vec4 src;\
+out vec2 f_position;\
+uniform vec2 screen_dimensions;\
+uniform vec2 sheet_dimensions;\
+const vec2 vertices[6] = vec2[] (\
+	vec2(0.0, 1.0),\
+	vec2(1.0, 0.0),\
+	vec2(0.0, 0.0),\
+	vec2(0.0, 1.0),\
+	vec2(1.0, 1.0),\
+	vec2(1.0, 0.0)\
+);\
+void main() {\
+	gl_Position = vec4(((dst.xy + dst.zw * vertices[gl_VertexID % 6]) * screen_dimensions) * vec2(2.0, -2.0) + vec2(-1.0, 1.0), 0.0, 1.0);\
+	f_position = (src.xy + vertices[gl_VertexID % 6] * src.zw) * sheet_dimensions;\
+}\
+";
 
-static const char* const fragment_src =
-	"#version 330\n"
-	"in vec2 f_position;"
-	"out vec4 out_color;"
-	"uniform sampler2D sheet;"
-	"void main() {"
-	"	out_color = texture(sheet, f_position);"
-	"}";
+static const char* const fragment_src = "\
+#version 330\n\
+in vec2 f_position;\
+out vec4 out_color;\
+uniform sampler2D sheet;\
+void main() {\
+	out_color = texture(sheet, f_position);\
+}\
+";
+
+typedef struct sprites_sequence {
+	data_texture_object* sheet;
+	size_t start;
+	size_t num_sprites;
+} sprites_sequence;
 
 struct sprites_object {
-	size_t length, size;
-	GLuint array;
+	sprites_sequence* sequences;
+	size_t sequences_length, sequences_size;
+
 	sprite_type* sprites;
-	GLuint sprites_buffer;
+	size_t sprites_length, sprites_size;
+
+	GLuint array;
+	GLuint buffer;
 	size_t new_sprites_start;
+	bool buffer_changed;
+
 	GLuint shader;
 	vec2 last_screen;
 	GLint screen_dimensions_location;
 	GLint sheet_dimensions_location;
 	GLint sheet_location;
-	bool buffers_changed;
 };
 
 sprites_object* sprites_create(const size_t initial_size) {
@@ -81,40 +94,66 @@ sprites_object* sprites_create(const size_t initial_size) {
 		return NULL;
 	}
 
-	sprites->length = 0u;
-	sprites->size = 0u;
-	sprites->sprites = NULL;
-	sprites->new_sprites_start = 0u;
-	sprites->buffers_changed = false;
+	sprites->sequences = NULL;
+	sprites->sequences_length = 0u;
+	sprites->sequences_size = 0u;
+
+	if (initial_size == 0u) {
+		sprites->sprites = NULL;
+	}
+	else {
+		sprites->sprites = (sprite_type*)mem_malloc(sizeof(sprite_type) * initial_size);
+		if (sprites->sprites == NULL) {
+			mem_free(sprites);
+		}
+	}
+
+	sprites->sprites_length = 0u;
+	sprites->sprites_size = initial_size;
 
 	glGenVertexArrays(1, &sprites->array);
 	if (opengl_error("Error from glGenVertexArrays in sprites_create: ")) {
+		if (sprites->sprites != NULL) {
+			mem_free(sprites->sprites);
+		}
 		mem_free(sprites);
 		return NULL;
 	}
 	glBindVertexArray(sprites->array);
 
-	glGenBuffers(1, &sprites->sprites_buffer);
+	glGenBuffers(1, &sprites->buffer);
 	if (opengl_error("Error from glGenBuffers in sprites_create: ")) {
 		glDeleteVertexArrays(1, &sprites->array);
+		if (sprites->sprites != NULL) {
+			mem_free(sprites->sprites);
+		}
 		mem_free(sprites);
 		return NULL;
 	}
-	glBindBuffer(GL_ARRAY_BUFFER, sprites->sprites_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, sprites->buffer);
 	glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(initial_size * sizeof(sprite_type)), NULL, GL_DYNAMIC_DRAW);
 	if (opengl_error("Error from glBufferData in sprites_create: ")) {
-		glDeleteBuffers(1, &sprites->sprites_buffer);
+		glDeleteBuffers(1, &sprites->buffer);
 		glDeleteVertexArrays(1, &sprites->array);
+		if (sprites->sprites != NULL) {
+			mem_free(sprites->sprites);
+		}
 		mem_free(sprites);
 		return NULL;
 	}
+
+	sprites->new_sprites_start = 0u;
+	sprites->buffer_changed = false;
 
 	sprites->shader = opengl_program_create(vertex_src, fragment_src);
 	if (sprites->shader == 0u) {
 		fprintf(stderr, "Error in sprites_create: Failed to create the sprite shader\n");
 		fflush(stderr);
-		glDeleteBuffers(1, &sprites->sprites_buffer);
+		glDeleteBuffers(1, &sprites->buffer);
 		glDeleteVertexArrays(1, &sprites->array);
+		if (sprites->sprites != NULL) {
+			mem_free(sprites->sprites);
+		}
 		mem_free(sprites);
 		return NULL;
 	}
@@ -130,7 +169,7 @@ sprites_object* sprites_create(const size_t initial_size) {
 	sprites->screen_dimensions_location = glGetUniformLocation(sprites->shader, "screen_dimensions");
 	sprites->sheet_dimensions_location = glGetUniformLocation(sprites->shader, "sheet_dimensions");
 
-	glBindBuffer(GL_ARRAY_BUFFER, sprites->sprites_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, sprites->buffer);
 	glEnableVertexAttribArray(dst_location);
 	glEnableVertexAttribArray(src_location);
 	glVertexAttribPointer(dst_location, 4, GL_FLOAT, GL_FALSE, sizeof(sprite_type), (void*)offsetof(sprite_type, dst));
@@ -138,16 +177,20 @@ sprites_object* sprites_create(const size_t initial_size) {
 	glVertexAttribDivisor(dst_location, 1u);
 	glVertexAttribDivisor(src_location, 1u);
 	sprites->new_sprites_start = 0u;
-	sprites->buffers_changed = false;
+	sprites->buffer_changed = false;
 
 	if (initial_size > 0u && !sprites_resize(sprites, initial_size)) {
-		glDeleteBuffers(1, &sprites->sprites_buffer);
+		glDeleteBuffers(1, &sprites->buffer);
 		glDeleteVertexArrays(1, &sprites->array);
+		if (sprites->sprites != NULL) {
+			mem_free(sprites->sprites);
+		}
 		mem_free(sprites);
 		return NULL;
 	}
 
 	sprites_screen_reset(sprites);
+	glBindBuffer(GL_ARRAY_BUFFER, 0u);
 
 	return sprites;
 }
@@ -155,55 +198,80 @@ sprites_object* sprites_create(const size_t initial_size) {
 void sprites_destroy(sprites_object* const sprites) {
 	assert(sprites != NULL);
 
+	if (sprites->sequences != NULL) {
+		mem_free(sprites->sequences);
+	}
 	if (sprites->sprites != NULL) {
 		mem_free(sprites->sprites);
 	}
 	if (sprites->array != 0u) {
 		glDeleteVertexArrays(1, &sprites->array);
 	}
-	if (sprites->sprites_buffer != 0u) {
-		glDeleteBuffers(1, &sprites->sprites_buffer);
+	if (sprites->buffer != 0u) {
+		glDeleteBuffers(1, &sprites->buffer);
 	}
 	mem_free(sprites);
 }
 
-bool sprites_resize(sprites_object* const sprites, const size_t new_size) {
+bool sprites_resize(sprites_object* const sprites, const size_t num_sprites) {
 	assert(sprites != NULL);
 
-	if (new_size == sprites->size) {
+	if (num_sprites == sprites->sprites_size) {
 		return true;
 	}
-	else if (new_size == 0u) {
-		if (sprites->size > 0u) {
-			mem_free(sprites->sprites);
-			sprites->sprites = NULL;
-			sprites->new_sprites_start = 0u;
-			sprites->buffers_changed = true;
+	else if (num_sprites == 0u) {
+		if (sprites->sequences_size > 0u) {
+			mem_free(sprites->sequences);
+			sprites->sequences = NULL;
 		}
 
-		sprites->length = 0u;
-		sprites->size = 0u;
+		if (sprites->sprites_size > 0u) {
+			mem_free(sprites->sprites);
+			sprites->sprites = NULL;
+		}
+
+		sprites->sequences_length = 0u;
+		sprites->sequences_size = 0u;
+
+		sprites->sprites_length = 0u;
+		sprites->sprites_size = 0u;
+
 		sprites->new_sprites_start = 0u;
-		sprites->buffers_changed = true;
+		sprites->buffer_changed = true;
+
 		return true;
 	}
 	else {
-		sprite_type* array;
-		if (sprites->sprites != NULL) {
-			array = (sprite_type*)mem_realloc(sprites->sprites, new_size * sizeof(sprite_type));
+		if (sprites->sequences_length > 0u && num_sprites < sprites->sprites_length) {
+			sprites_sequence* sequence = &sprites->sequences[0u];
+			size_t new_sequences_length = 1u;
+			while(sequence->start + sequence->num_sprites < num_sprites) {
+				sequence++;
+				new_sequences_length++;
+			}
+			sequence->num_sprites = num_sprites - sequence->start;
+			if (new_sequences_length < sprites->sequences_length) {
+				sprites_sequence* const new_sequences = (sprites_sequence*)mem_realloc(sprites->sequences, new_sequences_length * sizeof(sprites_sequence));
+				if (new_sequences == NULL) {
+					mem_free(sprites->sequences);
+					sprites->sequences = NULL;
+					return false;
+				}
+				sprites->sequences = new_sequences;
+			}
+			sprites->sequences_length = new_sequences_length;
+			sprites->sequences_size = new_sequences_length;
 		}
-		else {
-			array = (sprite_type*)mem_malloc(new_size * sizeof(sprite_type));
-		}
-		if (array == NULL) {
+
+		sprite_type* const new_sprites = (sprite_type*)mem_realloc(sprites->sprites, num_sprites * sizeof(sprite_type));
+		if (new_sprites == NULL) {
 			return false;
 		}
-		sprites->sprites = array;
+		sprites->sprites = new_sprites;
 
-		sprites->size = new_size;
-
-		if (new_size < sprites->length) {
-			sprites->length = new_size;
+		sprites->sprites_size = num_sprites;
+		if (num_sprites < sprites->sprites_length) {
+			sprites->sprites_length = num_sprites;
 		}
 		return true;
 	}
@@ -212,7 +280,7 @@ bool sprites_resize(sprites_object* const sprites, const size_t new_size) {
 bool sprites_shrink(sprites_object* const sprites) {
 	assert(sprites != NULL);
 
-	return sprites_resize(sprites, sprites->length);
+	return sprites_resize(sprites, sprites->sprites_length);
 }
 
 void sprites_screen_reset(sprites_object* const sprites) {
@@ -252,11 +320,12 @@ void sprites_screen_set(sprites_object* const sprites, const float screen_width,
 	}
 }
 
-bool sprites_add(sprites_object* const sprites, const size_t num_added, sprite_type* const added_sprites) {
+bool sprites_add(sprites_object* const sprites, data_texture_object* const sheet, const size_t num_added, sprite_type* const added_sprites) {
 	assert(
 		sprites != NULL &&
+		sheet != NULL &&
 		num_added <= UINT16_MAX &&
-		sprites->length <= UINT16_MAX - num_added &&
+		sprites->sprites_length <= UINT16_MAX - num_added &&
 		added_sprites != NULL
 	);
 	
@@ -264,28 +333,45 @@ bool sprites_add(sprites_object* const sprites, const size_t num_added, sprite_t
 		return true;
 	}
 
-	const size_t new_length = sprites->length + num_added;
-	if (new_length > sprites->size && !sprites_resize(sprites, new_length * 2u)) {
+	const size_t new_sequences_length = sprites->sequences_length + 1u;
+	if (new_sequences_length > sprites->sequences_size) {
+		const size_t new_sequences_size = new_sequences_length * 2u;
+		sprites_sequence* const new_sequences = (sprites_sequence*)mem_realloc(sprites->sequences, new_sequences_size * sizeof(sprites_sequence));
+		if (new_sequences == NULL) {
+			return false;
+		}
+		sprites->sequences = new_sequences;
+		sprites->sequences_size = new_sequences_size;
+	}
+
+	sprites_sequence* const new_sequence = &sprites->sequences[sprites->sequences_length];
+	new_sequence->sheet = sheet;
+	new_sequence->start = sprites->sprites_length;
+	new_sequence->num_sprites = num_added;
+
+	sprites->sequences_length++;
+
+	const size_t new_sprites_length = sprites->sprites_length + num_added;
+	if (new_sprites_length > sprites->sprites_size && !sprites_resize(sprites, new_sprites_length * 2u)) {
 		return false;
 	}
 
-	memcpy(sprites->sprites + sprites->length, added_sprites, num_added * sizeof(sprite_type));
+	memcpy(sprites->sprites + sprites->sprites_length, added_sprites, num_added * sizeof(sprite_type));
 
-	sprites->length += num_added;
-	sprites->buffers_changed = true;
+	sprites->sprites_length += num_added;
+	if (!sprites->buffer_changed) {
+		sprites->new_sprites_start = new_sequence->start;
+		sprites->buffer_changed = true;
+	}
 
 	return true;
 }
 
-bool sprites_draw(sprites_object* const sprites, data_texture_object* const sheet) {
-	assert(
-		sprites != NULL &&
-		sheet != NULL &&
-		sheet->name != 0u
-	);
+bool sprites_draw(sprites_object* const sprites) {
+	assert(sprites != NULL);
 
 	if (
-		sprites->length == 0u ||
+		sprites->sprites_length == 0u ||
 		sprites->last_screen[0] <= 0.0f ||
 		sprites->last_screen[1] <= 0.0f
 	) {
@@ -294,40 +380,63 @@ bool sprites_draw(sprites_object* const sprites, data_texture_object* const shee
 
 	glBindVertexArray(0u);
 	GLint buffer_size;
-	glBindBuffer(GL_ARRAY_BUFFER, sprites->sprites_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, sprites->buffer);
 	glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &buffer_size);
 
-	if (sprites->size != buffer_size / sizeof(sprite_type)) {
-		glBindBuffer(GL_ARRAY_BUFFER, sprites->sprites_buffer);
-		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(sprites->size * sizeof(sprite_type)), NULL, GL_DYNAMIC_DRAW);
+	if (sprites->sprites_size != buffer_size / sizeof(sprite_type)) {
+		glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(sprites->sprites_size * sizeof(sprite_type)), NULL, GL_DYNAMIC_DRAW);
 		if (opengl_error("Error from glBufferData in sprites_draw: ")) {
 			return false;
 		}
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sprites->length * sizeof(sprite_type), sprites->sprites);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sprites->sprites_length * sizeof(sprite_type), sprites->sprites);
+		sprites->new_sprites_start = sprites->sprites_length;
+		sprites->buffer_changed = false;
 	}
-	else if (sprites->buffers_changed) {
-		if (sprites->new_sprites_start < sprites->length) {
-			glBindBuffer(GL_ARRAY_BUFFER, sprites->sprites_buffer);
-			glBufferSubData(GL_ARRAY_BUFFER, 0, (sprites->length - sprites->new_sprites_start) * sizeof(sprite_type), sprites->sprites + sprites->new_sprites_start);
-			sprites->new_sprites_start = sprites->length;
-			sprites->buffers_changed = false;
-		}
+	else if (sprites->buffer_changed && sprites->new_sprites_start < sprites->sprites_length) {
+		glBufferSubData(GL_ARRAY_BUFFER, 0, (sprites->sprites_length - sprites->new_sprites_start) * sizeof(sprite_type), sprites->sprites + sprites->new_sprites_start);
+		sprites->new_sprites_start = sprites->sprites_length;
+		sprites->buffer_changed = false;
 	}
 
 	glDisable(GL_DEPTH_TEST);
 	glUseProgram(sprites->shader);
-	glUniform2f(sprites->sheet_dimensions_location, 1.0f / sheet->width, 1.0f / sheet->height);
 	glBindVertexArray(sprites->array);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, sheet->name);
-	glDrawArraysInstanced(GL_TRIANGLES, 0, 6, sprites->length);
-	return !opengl_error("Error from glDrawArraysInstanced in sprites_draw: ");
+	const GLint dst_location = glGetAttribLocation(sprites->shader, "dst");
+	const GLint src_location = glGetAttribLocation(sprites->shader, "src");
+
+	for (size_t i = 0u; i < sprites->sequences_length; i++) {
+		size_t start_sprites_batched = sprites->sequences[i].start;
+		size_t num_sprites_batched = sprites->sequences[i].num_sprites;
+		data_texture_object* current_sheet = sprites->sequences[i].sheet;
+		while (i + 1u < sprites->sequences_length) {
+			if (sprites->sequences[i + 1u].sheet == current_sheet) {
+				i++;
+				num_sprites_batched += sprites->sequences[i].num_sprites;
+			}
+			else {
+				break;
+			}
+		}
+
+		glBindTexture(GL_TEXTURE_2D, current_sheet->name);
+		glUniform2f(sprites->sheet_dimensions_location, 1.0f / current_sheet->width, 1.0f / current_sheet->height);
+		glVertexAttribPointer(dst_location, 4, GL_FLOAT, GL_FALSE, sizeof(sprite_type), (void*)(offsetof(sprite_type, dst) + start_sprites_batched * sizeof(sprite_type)));
+		glVertexAttribPointer(src_location, 4, GL_FLOAT, GL_FALSE, sizeof(sprite_type), (void*)(offsetof(sprite_type, src) + start_sprites_batched * sizeof(sprite_type)));
+		glDrawArraysInstanced(GL_TRIANGLES, 0, 6, num_sprites_batched);
+		if (opengl_error("Error from glDrawArraysInstanced in sprites_draw: ")) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void sprites_restart(sprites_object* const sprites) {
 	assert(sprites != NULL);
 
-	sprites->length = 0u;
+	sprites->sequences_length = 0u;
+	sprites->sprites_length = 0u;
 	sprites->new_sprites_start = 0u;
-	sprites->buffers_changed = true;
+	sprites->buffer_changed = true;
 }

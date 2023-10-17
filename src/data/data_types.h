@@ -74,13 +74,16 @@ typedef enum data_path {
 	DATA_PATH_SAVE,
 
 	/*
-	 * TODO: The data was created at runtime, and is not stored in the save path. Data can be moved from the runtime path to the save path, to ensure it's in persistent storage.
+	 * TODO: The data was created at runtime, and is not stored in the save
+	 * path. Data can be moved from the runtime path to the save path, to ensure
+	 * it's in persistent storage.
 	 */
 	DATA_PATH_RUNTIME,
 
 	/*
 	 * An attempt to load the data from the save path will be made first; if
-	 * loading from the save path failed, another loading attempt will be made from the resource path.
+	 * loading from the save path failed, another loading attempt will be made
+	 * from the resource path.
 	 */
 	DATA_PATH_SAVE_THEN_RESOURCE,
 
@@ -100,8 +103,9 @@ typedef struct data_id {
 	 * Always use forward slashes for subdirectories, never include
 	 * backslashes, and stick to only UTF-8 encoded ASCII characters, further
 	 * limiting to just letters, numbers, periods, and spaces, for
-	 * guaranteed-portability. File extensions must be included, but the type
-	 * field is what selects the file type.
+	 * guaranteed-portability. File extensions must be included, as the library
+	 * needs the full filename to load a file; the type field is what selects
+	 * the file type, not the extension.
 	 */
 	const char* filename;
 } data_id;

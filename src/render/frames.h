@@ -23,6 +23,24 @@
  * SOFTWARE.
  */
 
+/*
+ * Lock-free, concurrency-safe command queue library, intended for sending render
+ * commands from a producer thread to a consuming render thread. After creating
+ * the frames_object, arrange for a release-write of a shared atomic pointer to
+ * the shared frames_object, then a read-acquire of the pointer in the
+ * non-creating thread, to ensure the initialized state is valid in the
+ * non-creating thread before calling methods. Only frames_draw_latest and
+ * frames_destroy execute graphics API operations, so ensure they're only called
+ * in the render thread, not the producer thread.
+ */
+
+/*
+ * TODO: Implement a "current-frame-only temporary memory allocator" mechanism
+ * provided by frames_object, that accumulates the amount of memory allocated
+ * per frame, creating a single memory chunk for temporary allocations for later
+ * frames, and use that mechanism in the rest of the code.
+ */
+
 #include <stdbool.h>
 
 typedef struct frames_object frames_object;
