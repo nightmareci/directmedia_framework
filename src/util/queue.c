@@ -23,7 +23,7 @@
  */
 
 #include "util/queue.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include <stdlib.h>
 #include <assert.h>
 

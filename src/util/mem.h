@@ -36,13 +36,6 @@
 #define lengthoffield(type, field) sizeof(((type*)NULL)->field) / sizeof(*((type*)NULL)->field)
 #define sizeoffield(type, field) sizeof(((type*)NULL)->field)
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-#ifndef M_PIf
-#define M_PIf 3.14159265358979323846f
-#endif
-
 /*
  * TODO: Change from using a compile-time option for enabling/disabling memory
  * debugging to a runtime option, that must be passed in before startup. That
@@ -80,7 +73,7 @@ size_t mem_total();
 /*
  * Standard C aligned allocation isn't supported by Windows CRT due to Windows'
  * standard C free being unable to reclaim aligned-allocated memory, so we have
- * to use real_aligned_free for portability.
+ * to use a separate free function for aligned allocations for portability.
  */
 #ifdef _WIN32
 #define mem_aligned_alloc(alignment, size) _aligned_malloc((size), (alignment))
@@ -161,9 +154,3 @@ size_t mem_left();
  * debugging that checks that no unfreed bump allocations exist at an update
  * point.
  */
-
-#ifdef RELEASE_DEBUG
-#define release_assert(expr) (!(expr) ? fprintf(stderr, "File %s, line %d: Assertion \"" #expr "\" failed\n", __FILE__, __LINE__), fflush(stderr), abort() : (void)0)
-#else
-#define release_assert(expr) ((void)0)
-#endif

@@ -29,8 +29,8 @@
 #include "main/app.h"
 #include "data/data.h"
 #include "opengl/opengl.h"
-#include "util/string_util.h"
-#include "util/util.h"
+#include "util/text.h"
+#include "util/mem.h"
 #include <math.h>
 #include <stdarg.h>
 #include <assert.h>

@@ -25,7 +25,7 @@
 #include "render/frames.h"
 #include "util/conqueue.h"
 #include "util/queue.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include "main/app.h"
 #include "opengl/opengl.h"
 #include "SDL.h"

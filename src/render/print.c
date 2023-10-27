@@ -23,8 +23,8 @@
  */
 
 #include "render/print.h"
-#include "util/string_util.h"
-#include "util/util.h"
+#include "util/text.h"
+#include "util/mem.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <float.h>

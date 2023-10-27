@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#include "util/string_util.h"
-#include "util/util.h"
+#include "util/text.h"
+#include "util/mem.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -141,11 +141,11 @@ uint32_t utf8_get(const char* const str, size_t* const bytes) {
 		*bytes = 4u;
 	}
 	else {
-		codepoint = 0xFFFD; // REPLACEMENT CHARACTER
+		codepoint = 0xFFFDu; // REPLACEMENT CHARACTER
 		*bytes = 1u;
 	}
 
-	for (unsigned i = 1u; i < *bytes; i++) {
+	for (size_t i = 1u; i < *bytes; i++) {
 		s++;
 		codepoint <<= 6;
 		codepoint |= ((uint32_t)*s & 0x3Fu);
@@ -161,7 +161,7 @@ size_t utf8_strlen(const char* const str) {
 	size_t bytes;
 	for (
 		const char* c = str;
-		utf8_get(c, &bytes) != UINT32_C(0);
+		utf8_get(c, &bytes) != '\0';
 		c += bytes, len++
 	);
 	return len;

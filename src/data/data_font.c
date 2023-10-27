@@ -24,8 +24,8 @@
 
 #include "data/data.h"
 #include "opengl/opengl.h"
-#include "util/util.h"
-#include "util/string_util.h"
+#include "util/text.h"
+#include "util/mem.h"
 
 static bool create(data_object* const data, SDL_RWops* const rwops) {
 	const Sint64 size = SDL_RWsize(rwops);

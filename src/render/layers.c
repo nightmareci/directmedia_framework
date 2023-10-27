@@ -28,7 +28,7 @@
 
 #include "render/layers.h"
 #include "render/sprites.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include "SDL_video.h"
 #include <assert.h>
 

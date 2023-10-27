@@ -24,8 +24,9 @@
 
 #include "game/game.h"
 #include "render/render.h"
+#include "util/mathematics.h"
 #include "util/nanotime.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include "SDL.h"
 #include <inttypes.h>
 #include <math.h>

@@ -24,8 +24,8 @@
 
 #include "render/sprites.h"
 #include "opengl/opengl.h"
-#include "util/linear.h"
-#include "util/util.h"
+#include "util/mathematics.h"
+#include "util/mem.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -23,6 +23,18 @@
  * SOFTWARE.
  */
 
+#include <math.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef M_PIf
+#define M_PIf 3.14159265358979323846f
+#endif
+
+#define TORADIANS(degrees) ((degrees) * (M_PIf / 180.0f))
+#define TODEGREES(radians) ((radians) * (180.0f / M_PIf))
+
 typedef float vec2[2];
 typedef float vec3[3];
 typedef float vec4[4];

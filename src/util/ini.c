@@ -24,8 +24,8 @@
 
 #include "util/ini.h"
 #include "util/dict.h"
-#include "util/string_util.h"
-#include "util/util.h"
+#include "util/text.h"
+#include "util/mem.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>

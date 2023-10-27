@@ -1,4 +1,4 @@
-#include "util/util.h"
+#include "util/mem.h"
 #include "SDL_atomic.h"
 
 // TODO: Support more than Linux here?

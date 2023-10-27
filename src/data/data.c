@@ -24,9 +24,9 @@
 
 #include "data/data.h"
 #include "data/data_type_manager.h"
-#include "util/string_util.h"
 #include "util/dict.h"
-#include "util/util.h"
+#include "util/text.h"
+#include "util/mem.h"
 #include "SDL.h"
 #include "SDL_mixer.h"
 #include "SDL_image.h"

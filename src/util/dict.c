@@ -23,7 +23,7 @@
  */
 
 #include "util/dict.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>

@@ -23,7 +23,7 @@
  */
 
 #include "data/data_types.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include "SDL_image.h"
 #include "SDL_surface.h"
 

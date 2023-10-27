@@ -24,7 +24,7 @@
 
 #include "main/app.h"
 #include "opengl/opengl.h"
-#include "util/string_util.h"
+#include "util/text.h"
 #include "SDL.h"
 #include "SDL_mixer.h"
 #include "SDL_image.h"

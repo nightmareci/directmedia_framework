@@ -24,7 +24,7 @@
 
 #include "util/font.h"
 #include "util/dict.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>

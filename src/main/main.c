@@ -24,7 +24,7 @@
 
 #include "main/app.h"
 #include "util/nanotime.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include "render/render.h"
 #include "lua/lauxlib.h"
 #include "game/game.h"

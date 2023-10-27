@@ -27,4 +27,5 @@
 /CMakeSettings.json
 /*.kdev4
 /build*
+/*.zip
 /save

@@ -23,7 +23,7 @@
  */
 
 #include "data/data.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include <stdlib.h>
 
 static bool create(data_object* const data, SDL_RWops* const rwops) {

@@ -1,5 +1,5 @@
 #include "menu/menu.h"
-#include "util/util.h"
+#include "util/mem.h"
 
 typedef struct menu_private {
     menu_public data;

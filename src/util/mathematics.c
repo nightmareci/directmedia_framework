@@ -22,11 +22,7 @@
  * SOFTWARE.
  */
 
-#include "util/linear.h"
-#include "util/util.h"
-#include <math.h>
-
-#define TORADIANS(degrees) ((degrees) * (M_PIf / 180.0f))
+#include "util/mathematics.h"
 
 void vec3_copy(vec3 dst, const vec3 src) {
 	for (unsigned i = 0u; i < 3u; i++) {

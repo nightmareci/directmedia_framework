@@ -23,7 +23,7 @@
  */
 
 #include "opengl/opengl.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include "SDL.h"
 #include <stdio.h>
 #include <stdlib.h>

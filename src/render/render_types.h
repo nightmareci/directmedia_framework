@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "util/linear.h"
+#include "util/mathematics.h"
 #include "data/data_texture.h"
 
 typedef struct sprite_type {

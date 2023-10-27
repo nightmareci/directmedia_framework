@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "util/util.h"
+#include "util/mem.h"
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
@@ -42,8 +42,8 @@ char* alloc_vsprintf(const char* const fmt, va_list args);
 
 #ifndef _WIN32
 /*
- * Compare strings case insensitively. The return value is the same as for
- * standard C strcmp.
+ * Compare strings case insensitively. The return value is of the same
+ * semantics as of standard C strcmp.
  */
 int strcmpi(const char* lhs, const char* rhs);
 #endif
@@ -68,6 +68,8 @@ void strtolower(char* const str, const size_t size);
 uint32_t utf8_get(const char* const str, size_t* const bytes);
 
 /*
- * Returns the number of UTF-8-encoded characters in the string.
+ * Returns the number of UTF-8-encoded characters in the string. Here's a tip
+ * though, just use strlen to get the byte size of a UTF-8 encoded string less
+ * the NUL terminator byte, such as in memory management code.
  */
 size_t utf8_strlen(const char* const str);

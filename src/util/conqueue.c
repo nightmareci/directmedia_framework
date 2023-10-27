@@ -23,7 +23,7 @@
  */
 
 #include "util/conqueue.h"
-#include "util/util.h"
+#include "util/mem.h"
 #include "SDL_atomic.h"
 #include "SDL_thread.h"
 #include <stdlib.h>
