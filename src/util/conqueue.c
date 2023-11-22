@@ -113,7 +113,8 @@ void conqueue_destroy(conqueue_object* const queue) {
 }
 
 bool conqueue_enqueue(conqueue_object* const queue, void* const value) {
-	assert(queue != NULL && value != NULL);
+	assert(queue != NULL);
+	assert(value != NULL);
 
 	node_object* node = mem_malloc(sizeof(node_object));
 	if (node == NULL) {

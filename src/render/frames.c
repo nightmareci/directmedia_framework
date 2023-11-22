@@ -64,10 +64,8 @@ frames_object* frames_create() {
 }
 
 bool frames_destroy(frames_object* const frames) {
-	assert(
-		frames != NULL &&
-		frames->frame_queues != NULL
-	);
+	assert(frames != NULL);
+	assert(frames->frame_queues != NULL);
 
 	for (
 		frame_object* frame = (frame_object*)conqueue_dequeue(frames->frame_queues);
@@ -96,10 +94,8 @@ bool frames_destroy(frames_object* const frames) {
 }
 
 frames_status_type frames_start(frames_object* const frames) {
-	assert(
-		frames != NULL &&
-		frames->frame_queues != NULL
-	);
+	assert(frames != NULL);
+	assert(frames->frame_queues != NULL);
 
 	frame_object* const next_frame = mem_malloc(sizeof(frame_object));
 	if (next_frame == NULL) {
@@ -139,12 +135,10 @@ bool frames_enqueue_command(
 	const command_funcs* const funcs,
 	void* const state
 ) {
-	assert(
-		frames != NULL &&
-		frames->next_latest_frame != NULL &&
-		frames->next_latest_frame->commands != NULL &&
-		funcs != NULL
-	);
+	assert(frames != NULL);
+	assert(frames->next_latest_frame != NULL);
+	assert(frames->next_latest_frame->commands != NULL);
+	assert(funcs != NULL);
 
 	queue_object* const commands = frames->next_latest_frame->commands;
 
@@ -165,10 +159,8 @@ bool frames_enqueue_command(
 }
 
 frames_status_type frames_draw_latest(frames_object* const frames) {
-	assert(
-		frames != NULL &&
-		frames->frame_queues != NULL
-	);
+	assert(frames != NULL);
+	assert(frames->frame_queues != NULL);
 
 	frame_object* const latest_frame = SDL_AtomicGetPtr((void**)&frames->latest_frame);
 	SDL_MemoryBarrierAcquire();

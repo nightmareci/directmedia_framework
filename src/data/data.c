@@ -48,7 +48,8 @@ static const data_type_manager* const type_managers[DATA_TYPE_NUM] = {
 };
 
 data_cache_object* data_cache_create(const char* const resource_path, const char* const save_path) {
-	assert(resource_path != NULL && save_path != NULL);
+	assert(resource_path != NULL);
+	assert(save_path != NULL);
 
 	if (
 #ifdef _WIN32
@@ -103,7 +104,9 @@ static size_t get_key_size(const data_id* const id) {
 }
 
 static void* get_key(const data_id* const id, size_t* const key_size) {
-	assert(id != NULL && strlen(id->filename) > 0u && key_size != NULL);
+	assert(id != NULL);
+	assert(strlen(id->filename) > 0u);
+	assert(key_size != NULL);
 
 	const size_t size = get_key_size(id);
 	void* const key = mem_malloc(size);
@@ -116,12 +119,12 @@ static void* get_key(const data_id* const id, size_t* const key_size) {
 }
 
 const data_object* data_load(data_cache_object* const cache, const data_type type, const data_path path, const char* const filename, data_load_status* const status) {
-	assert(
-		cache != NULL &&
-		type >= 0 && type < DATA_TYPE_NUM &&
-		path >= 0 && path < DATA_PATH_NUM &&
-		filename != NULL
-	);
+	assert(cache != NULL);
+	assert(type >= 0);
+	assert(type < DATA_TYPE_NUM);
+	assert(path >= 0);
+	assert(path < DATA_PATH_NUM);
+	assert(filename != NULL);
 
 	if (path == DATA_PATH_SAVE_THEN_RESOURCE) {
 		const data_object* const data = data_load(cache, type, DATA_PATH_SAVE, filename, status);
@@ -225,12 +228,12 @@ bool data_unload(const data_object* const data) {
 }
 
 const data_object* data_cache_get(data_cache_object* const cache, const data_type type, const data_path path, const char* const filename, data_load_status* const status, const bool always_load) {
-	assert(
-		cache != NULL &&
-		type >= 0 && type < DATA_TYPE_NUM &&
-		path >= 0 && path < DATA_PATH_NUM &&
-		filename != NULL
-	);
+	assert(cache != NULL);
+	assert(type >= 0);
+	assert(type < DATA_TYPE_NUM);
+	assert(path >= 0);
+	assert(path < DATA_PATH_NUM);
+	assert(filename != NULL);
 
 	bool success;
 
@@ -288,12 +291,12 @@ const data_object* data_cache_get(data_cache_object* const cache, const data_typ
 }
 
 bool data_cache_unget(data_cache_object* const cache, const data_type type, const data_path path, const char* const filename) {
-	assert(
-		cache != NULL &&
-		type >= 0 && type < DATA_TYPE_NUM &&
-		path >= 0 && path < DATA_PATH_NUM &&
-		filename != NULL
-	);
+	assert(cache != NULL);
+	assert(type >= 0);
+	assert(type < DATA_TYPE_NUM);
+	assert(path >= 0);
+	assert(path < DATA_PATH_NUM);
+	assert(filename != NULL);
 
 	size_t key_size = 0u;
 	data_id id = {
@@ -352,13 +355,12 @@ char* data_directory_get(const data_object* const data) {
 
 bool data_save(data_cache_object*const cache, const data_type type, const char*const filename, const void*const bytes, const size_t size, const bool add_to_cache)
 {
-	assert(
-		cache != NULL &&
-		type >= 0 && type < DATA_TYPE_NUM &&
-		filename != NULL &&
-		bytes != NULL &&
-		size > 0u
-	);
+	assert(cache != NULL);
+	assert(type >= 0);
+	assert(type < DATA_TYPE_NUM);
+	assert(filename != NULL);
+	assert(bytes != NULL);
+	assert(size > 0u);
 
 	char* const full_filename = alloc_sprintf("%s%s", cache->save_path, filename);
 	if (full_filename == NULL) {
@@ -484,10 +486,8 @@ bool data_cache_remove(const data_object* const data) {
 }
 
 bool data_cache_only(data_cache_object* const cache, const data_id* const ids, const size_t count) {
-	assert(
-		cache != NULL &&
-		(count == 0u || (ids != NULL && count > 0u))
-	);
+	assert(cache != NULL);
+	assert(count == 0u || (ids != NULL && count > 0u));
 
 	bool success;
 

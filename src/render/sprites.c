@@ -288,12 +288,10 @@ void sprites_screen_reset(sprites_object* const sprites) {
 
 	GLfloat viewport[4];
 	glGetFloatv(GL_VIEWPORT, viewport);
-	assert(
-		viewport[2] > 0.0f &&
-		viewport[2] <= FLT_MAX &&
-		viewport[3] > 0.0f &&
-		viewport[3] <= FLT_MAX
-	);
+	assert(viewport[2] > 0.0f);
+	assert(viewport[2] <= FLT_MAX);
+	assert(viewport[3] > 0.0f);
+	assert(viewport[3] <= FLT_MAX);
 	sprites->last_screen[0] = 1.0f / viewport[2];
 	sprites->last_screen[1] = 1.0f / viewport[3];
 	glUseProgram(sprites->shader);
@@ -301,13 +299,11 @@ void sprites_screen_reset(sprites_object* const sprites) {
 }
 
 void sprites_screen_set(sprites_object* const sprites, const float screen_width, const float screen_height) {
-	assert(
-		sprites != NULL &&
-		screen_width >= 0.0f &&
-		screen_width <= FLT_MAX &&
-		screen_height >= 0.0f &&
-		screen_height <= FLT_MAX
-	);
+	assert(sprites != NULL);
+	assert(screen_width >= 0.0f);
+	assert(screen_width <= FLT_MAX);
+	assert(screen_height >= 0.0f);
+	assert(screen_height <= FLT_MAX);
 
 	if (screen_width == 0.0f || screen_height == 0.0f) {
 		sprites_screen_reset(sprites);
@@ -321,13 +317,11 @@ void sprites_screen_set(sprites_object* const sprites, const float screen_width,
 }
 
 bool sprites_add(sprites_object* const sprites, data_texture_object* const sheet, const size_t num_added, sprite_type* const added_sprites) {
-	assert(
-		sprites != NULL &&
-		sheet != NULL &&
-		num_added <= UINT16_MAX &&
-		sprites->sprites_length <= UINT16_MAX - num_added &&
-		added_sprites != NULL
-	);
+	assert(sprites != NULL);
+	assert(sheet != NULL);
+	assert(num_added <= UINT16_MAX);
+	assert(sprites->sprites_length <= UINT16_MAX - num_added);
+	assert(added_sprites != NULL);
 	
 	if (num_added == 0u) {
 		return true;

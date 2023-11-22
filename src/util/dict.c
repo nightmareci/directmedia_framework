@@ -478,7 +478,8 @@ bool dict_only(dict_object* const dict, const size_t count, const void* const* c
 }
 
 size_t dict_tokey(void* const buf, const size_t buf_size, const size_t pairs_count, ...) {
-	assert((buf == NULL || (buf != NULL && buf_size > 0u)) && pairs_count > 0u);
+	assert(buf == NULL || (buf != NULL && buf_size > 0u));
+	assert(pairs_count > 0u);
 
 	va_list args;
 	va_start(args, pairs_count);

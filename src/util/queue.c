@@ -65,7 +65,8 @@ void queue_destroy(queue_object* const queue) {
 }
 
 bool queue_enqueue(queue_object* const queue, void* const value) {
-    assert(queue != NULL && value != NULL);
+    assert(queue != NULL);
+    assert(value != NULL);
 
     node_object* node;
     if (queue->cache != NULL) {

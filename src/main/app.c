@@ -293,7 +293,8 @@ void app_glcontext_destroy(SDL_GLContext const context) {
 	SDL_MemoryBarrierAcquire();
 
 	#ifndef NDEBUG
-	assert(context != NULL && current_window != NULL);
+	assert(context != NULL);
+	assert(current_window != NULL);
 	#endif
 
 	SDL_GL_MakeCurrent(current_window, NULL);

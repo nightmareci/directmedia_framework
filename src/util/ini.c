@@ -36,11 +36,10 @@
 #include <assert.h>
 
 static void next_line(const char** line, size_t* const len, const char* const end) {
-	assert(
-		line != NULL && *line != NULL &&
-		len != NULL &&
-		end != NULL
-	);
+	assert(line != NULL);
+	assert(*line != NULL);
+	assert(len != NULL);
+	assert(end != NULL);
 
 	while (*line != end && (**line == ' ' || **line == '\t' || **line == '\n' || **line == '\r')) {
 		(*line)++;

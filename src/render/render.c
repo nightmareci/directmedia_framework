@@ -183,10 +183,8 @@ static void render_sprites_destroy_func(void* const state) {
 }
 
 bool render_sprites(const char* const sheet_filename, const size_t layer_index, const size_t num_added, const sprite_type* const added_sprites) {
-	assert(
-		sheet_filename != NULL &&
-		added_sprites != NULL
-	);
+	assert(sheet_filename != NULL);
+	assert(added_sprites != NULL);
 
 	if (num_added == 0u) {
 		return true;

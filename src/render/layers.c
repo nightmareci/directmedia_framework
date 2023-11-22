@@ -127,12 +127,10 @@ void layers_restart(layers_object* const layers) {
 }
 
 bool layers_sprites_add(layers_object* const layers, data_texture_object* const sheet, const size_t layer_index, const size_t num_added, sprite_type* const added_sprites) {
-	assert(
-		layers != NULL &&
-		layer_index < layers->size &&
-		sheet != NULL &&
-		added_sprites != NULL
-	);
+	assert(layers != NULL);
+	assert(layer_index < layers->size);
+	assert(sheet != NULL);
+	assert(added_sprites != NULL);
 
 	if (num_added == 0u) {
 		return true;
