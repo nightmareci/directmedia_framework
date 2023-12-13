@@ -29,6 +29,7 @@
 #include "main/app.h"
 #include "data/data.h"
 #include "opengl/opengl.h"
+#include "util/log.h"
 #include "util/text.h"
 #include "util/mem.h"
 #include <math.h>
@@ -79,9 +80,19 @@ void render_deinit() {
 }
 
 static bool render_start_update_func(void* const state) {
+	vecptr const screen_size = state;
+	if (!(
+		screen_size[0] >= 0.0f && screen_size[0] <= FLT_MAX &&
+		screen_size[1] >= 0.0f && screen_size[1] <= FLT_MAX
+	)) {
+		mem_free(screen_size);
+		return false;
+	}
+
 	if (sprites == NULL) {
 		sprites = sprites_create(0u);
 		if (sprites == NULL) {
+			mem_free(screen_size);
 			return false;
 		}
 	}
@@ -89,9 +100,13 @@ static bool render_start_update_func(void* const state) {
 		sprites_restart(sprites);
 	}
 
+	size_t render_size[2];
+	app_render_size_get(&render_size[0], &render_size[1]);
+
 	if (layers == NULL) {
 		layers = layers_create(NUM_LAYERS);
 		if (layers == NULL) {
+			mem_free(screen_size);
 			return false;
 		}
 	}
@@ -99,17 +114,47 @@ static bool render_start_update_func(void* const state) {
 		layers_restart(layers);
 	}
 
+	const float render_aspect = (float)render_size[0] / (float)render_size[1];
+	const float screen_aspect = screen_size[0] / screen_size[1];
+	vec2 set_size = { screen_size[0], screen_size[1] };
+	if (render_aspect > 1.0f) {
+		if (render_aspect > screen_aspect) {
+			set_size[0] *= render_aspect / screen_aspect;
+		}
+		else {
+			set_size[1] *= screen_aspect / render_aspect;
+		}
+	}
+	else if (render_aspect < 1.0f) {
+		if (render_aspect > screen_aspect) {
+			set_size[0] *= render_aspect / screen_aspect;
+		}
+		else {
+			set_size[1] *= screen_aspect / render_aspect;
+		}
+	}
+
+	sprites_screen_set(sprites, set_size[0], set_size[1]);
+	layers_screen_set(layers, set_size[0], set_size[1]);
+
+	mem_free(screen_size);
 	return true;
 }
 
-bool render_start() {
+bool render_start(const float width, const float height) {
 	static const command_funcs funcs = {
 		.update = render_start_update_func,
 		.draw = NULL,
 		.destroy = NULL
 	};
 
-	return frames_enqueue_command(render_frames, &funcs, NULL);
+	vecptr const screen_size = mem_malloc(sizeof(vec2));
+	if (screen_size == NULL) {
+		return false;
+	}
+	screen_size[0] = width;
+	screen_size[1] = height;
+	return frames_enqueue_command(render_frames, &funcs, screen_size);
 }
 
 static bool render_end_draw_func(void* const state) {
@@ -130,32 +175,35 @@ bool render_end() {
 }
 
 static bool render_clear_draw_func(void* const state) {
-	const uintptr_t color = (uintptr_t)state;
-	glClearColor(
-		(uint8_t)(color >> 24) / 255.0f,
-		(uint8_t)(color >> 16) / 255.0f,
-		(uint8_t)(color >>  8) / 255.0f,
-		(uint8_t)(color >>  0) / 255.0f
-	);
+	const vecptr color = (vecptr)state;
+	glClearColor(color[0], color[1], color[2], color[3]);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	return true;
 }
 
-bool render_clear(const uint8_t red, const uint8_t green, const uint8_t blue, const uint8_t alpha) {
+static void render_clear_destroy_func(void* const state) {
+	const vecptr color = state;
+	mem_free(color);
+}
+
+bool render_clear(const float red, const float green, const float blue, const float alpha) {
 	static const command_funcs funcs = {
 		.update = NULL,
 		.draw = render_clear_draw_func,
-		.destroy = NULL
+		.destroy = render_clear_destroy_func
 	};
 
-	static_assert(sizeof(void*) >= 4u, "sizeof(void*) < 4u");
-	return frames_enqueue_command(render_frames, &funcs, (void*)(
-		((uintptr_t)red   << 24) |
-		((uintptr_t)green << 16) |
-		((uintptr_t)blue  <<  8) |
-		((uintptr_t)alpha <<  0)
-	));
+	vecptr color = mem_malloc(sizeof(vec4));
+	if (color == NULL) {
+		return false;
+	}
+	color[0] = red;
+	color[1] = green;
+	color[2] = blue;
+	color[3] = alpha;
+
+	return frames_enqueue_command(render_frames, &funcs, color);
 }
 
 typedef struct render_sprites_object {
@@ -173,13 +221,10 @@ static bool render_sprites_update_func(void* const state) {
 		return false;
 	}
 	assert(s->layer_index < NUM_LAYERS);
-	return layers_sprites_add(layers, data->texture, s->layer_index, s->num_added, s->added_sprites);
-}
-
-static void render_sprites_destroy_func(void* const state) {
-	render_sprites_object* const s = state;
+	const bool success = layers_sprites_add(layers, data->texture, s->layer_index, s->num_added, s->added_sprites);
 	mem_free(s->added_sprites);
 	mem_free(s);
+	return success;
 }
 
 bool render_sprites(const char* const sheet_filename, const size_t layer_index, const size_t num_added, const sprite_type* const added_sprites) {
@@ -208,7 +253,7 @@ bool render_sprites(const char* const sheet_filename, const size_t layer_index, 
 	static const command_funcs funcs = {
 		.update = render_sprites_update_func,
 		.draw = NULL,
-		.destroy = render_sprites_destroy_func
+		.destroy = NULL
 	};
 
 	if (!frames_enqueue_command(render_frames, &funcs, s)) {
@@ -234,13 +279,10 @@ static bool render_print_update_func(void* const state) {
 	if (font == NULL) {
 		return false;
 	}
-	return print_layer_text(font->font, layers, p->layer_index, p->x, p->y, p->text);
-}
-
-static void render_print_destroy_func(void* const state) {
-	render_print_object* const p = state;
+	const bool success = print_layer_text(font->font, layers, p->layer_index, p->x, p->y, p->text);
 	mem_free((char*)p->text);
 	mem_free(p);
+	return success;
 }
 
 bool render_text(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const text) {
@@ -264,7 +306,7 @@ bool render_text(const char* const font_filename, const size_t layer_index, cons
 	static const command_funcs funcs = {
 		.update = render_print_update_func,
 		.draw = NULL,
-		.destroy = render_print_destroy_func
+		.destroy = NULL
 	};
 	if (!frames_enqueue_command(render_frames, &funcs, p)) {
 		mem_free((char*)p->text);
@@ -297,7 +339,7 @@ bool render_printf(const char* const font_filename, const size_t layer_index, co
 	static const command_funcs funcs = {
 		.update = render_print_update_func,
 		.draw = NULL,
-		.destroy = render_print_destroy_func
+		.destroy = NULL
 	};
 	if (!frames_enqueue_command(render_frames, &funcs, p)) {
 		mem_free((char*)p->text);

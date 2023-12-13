@@ -36,7 +36,7 @@ set(ORG "nightmareci")
 set(EXE "${CMAKE_PROJECT_NAME}")
 set(NAME "Skill Clear")
 
-option(SHOW_RELEASE_VERSION "If TRUE, the build is a finalized release version, and the game will show the release version. If FALSE, the text \"Prerelease <UTC build timestamp>\" will be shown instead.")
+option(SHOW_RELEASE_VERSION "If enabled, the build is a finalized release version, and the game will show the release version. If disabled, the text \"Prerelease <UTC build timestamp>\" will be shown instead.")
 
 if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE MATCHES Debug)
 	set(IS_DEBUG TRUE)
@@ -44,12 +44,12 @@ else()
 	set(IS_DEBUG FALSE)
 endif()
 
-option(MEM_DEBUG "If TRUE, memory debugging will be included regardless of build type." ${IS_DEBUG})
+option(MEM_DEBUG "If enabled, memory debugging will be included regardless of build type." ${IS_DEBUG})
 if(MEM_DEBUG)
 	add_compile_definitions(MEM_DEBUG)
 endif()
 
-option(RELEASE_DEBUG "If TRUE, assertions via release_assert will be active regardless of build type." ${IS_DEBUG})
+option(RELEASE_DEBUG "If enabled, assertions via release_assert will be active regardless of build type." ${IS_DEBUG})
 if(RELEASE_DEBUG)
 	add_compile_definitions(RELEASE_DEBUG)
 endif()
@@ -65,7 +65,10 @@ endif()
 set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target.")
 message(STATUS "Build target: ${BUILD_TARGET}")
 
+option(USE_VENDOR_LIBRARIES "Enable building and usage of the vendor-provided libraries instead of system-installed libraries." FALSE)
+
 configure_file("${SRC}/src/main/app_const.c.in" "${BIN}/src/main/app_const.c" @ONLY)
+
 # TODO: Refactor so headers are precompiled.
 add_executable("${EXE}"
 	# Sources for the game follow. All game sources should be under the
@@ -105,7 +108,8 @@ add_executable("${EXE}"
 	"${SRC}/src/util/dict.h"
 	"${SRC}/src/util/font.h"
 	"${SRC}/src/util/ini.h"
-	"${SRC}/src/util/mathematics.c"
+	"${SRC}/src/util/log.h"
+	"${SRC}/src/util/maths.h"
 	"${SRC}/src/util/mem.h"
 	"${SRC}/src/util/nanotime.h"
 	"${SRC}/src/util/queue.h"
@@ -115,7 +119,8 @@ add_executable("${EXE}"
 	"${SRC}/src/util/dict.c"
 	"${SRC}/src/util/font.c"
 	"${SRC}/src/util/ini.c"
-	"${SRC}/src/util/mathematics.h"
+	"${SRC}/src/util/log.c"
+	"${SRC}/src/util/maths.c"
 	"${SRC}/src/util/mem.c"
 	"${SRC}/src/util/nanotime.c"
 	"${SRC}/src/util/queue.c"
@@ -154,82 +159,147 @@ add_executable("${EXE}"
 	"${SRC}/src/opengl/opengl.c"
 
 
-	# A specific version of Lua is bundled directly into the repository, to
-	# ensure it's the exact version the code expects. As of last editing
-	# this file, the CMake FindLua module doesn't provide any means to
-	# request a specific version of Lua to use.
+	# A specific version of Lua as a Git submodule in the repository is
+	# used, to ensure it's the exact version the code expects, because
+	# updates to Lua can break compatibility; the code of this repository
+	# will be adapted to be compatible with updated versions of Lua, to
+	# ensure the code doesn't break. Thus, you *must* at least get the Lua
+	# submodule with the repository's own content to build at all.  As of
+	# last editing this file, the CMake FindLua module doesn't provide any
+	# means to request a specific version of Lua to use.
 
 
-	"${SRC}/src/lua/lapi.h"
-	"${SRC}/src/lua/lauxlib.h"
-	"${SRC}/src/lua/lcode.h"
-	"${SRC}/src/lua/lctype.h"
-	"${SRC}/src/lua/ldebug.h"
-	"${SRC}/src/lua/ldo.h"
-	"${SRC}/src/lua/lfunc.h"
-	"${SRC}/src/lua/lgc.h"
-	"${SRC}/src/lua/ljumptab.h"
-	"${SRC}/src/lua/llex.h"
-	"${SRC}/src/lua/llimits.h"
-	"${SRC}/src/lua/lmem.h"
-	"${SRC}/src/lua/lobject.h"
-	"${SRC}/src/lua/lopcodes.h"
-	"${SRC}/src/lua/lopnames.h"
-	"${SRC}/src/lua/lparser.h"
-	"${SRC}/src/lua/lprefix.h"
-	"${SRC}/src/lua/lstate.h"
-	"${SRC}/src/lua/lstring.h"
-	"${SRC}/src/lua/ltable.h"
-	"${SRC}/src/lua/ltm.h"
-	"${SRC}/src/lua/luaconf.h"
-	"${SRC}/src/lua/lua.h"
-	"${SRC}/src/lua/lualib.h"
-	"${SRC}/src/lua/lundump.h"
-	"${SRC}/src/lua/lvm.h"
-	"${SRC}/src/lua/lzio.h"
+	"${SRC}/lib/lua/lapi.h"
+	"${SRC}/lib/lua/lauxlib.h"
+	"${SRC}/lib/lua/lcode.h"
+	"${SRC}/lib/lua/lctype.h"
+	"${SRC}/lib/lua/ldebug.h"
+	"${SRC}/lib/lua/ldo.h"
+	"${SRC}/lib/lua/lfunc.h"
+	"${SRC}/lib/lua/lgc.h"
+	"${SRC}/lib/lua/ljumptab.h"
+	"${SRC}/lib/lua/llex.h"
+	"${SRC}/lib/lua/llimits.h"
+	"${SRC}/lib/lua/lmem.h"
+	"${SRC}/lib/lua/lobject.h"
+	"${SRC}/lib/lua/lopcodes.h"
+	"${SRC}/lib/lua/lopnames.h"
+	"${SRC}/lib/lua/lparser.h"
+	"${SRC}/lib/lua/lprefix.h"
+	"${SRC}/lib/lua/lstate.h"
+	"${SRC}/lib/lua/lstring.h"
+	"${SRC}/lib/lua/ltable.h"
+	"${SRC}/lib/lua/ltm.h"
+	"${SRC}/lib/lua/luaconf.h"
+	"${SRC}/lib/lua/lua.h"
+	"${SRC}/lib/lua/lualib.h"
+	"${SRC}/lib/lua/lundump.h"
+	"${SRC}/lib/lua/lvm.h"
+	"${SRC}/lib/lua/lzio.h"
 
-	"${SRC}/src/lua/lapi.c"
-	"${SRC}/src/lua/lauxlib.c"
-	"${SRC}/src/lua/lbaselib.c"
-	"${SRC}/src/lua/lcode.c"
-	"${SRC}/src/lua/lcorolib.c"
-	"${SRC}/src/lua/lctype.c"
-	"${SRC}/src/lua/ldblib.c"
-	"${SRC}/src/lua/ldebug.c"
-	"${SRC}/src/lua/ldo.c"
-	"${SRC}/src/lua/ldump.c"
-	"${SRC}/src/lua/lfunc.c"
-	"${SRC}/src/lua/lgc.c"
-	"${SRC}/src/lua/linit.c"
-	"${SRC}/src/lua/liolib.c"
-	"${SRC}/src/lua/llex.c"
-	"${SRC}/src/lua/lmathlib.c"
-	"${SRC}/src/lua/lmem.c"
-	"${SRC}/src/lua/loadlib.c"
-	"${SRC}/src/lua/lobject.c"
-	"${SRC}/src/lua/lopcodes.c"
-	"${SRC}/src/lua/loslib.c"
-	"${SRC}/src/lua/lparser.c"
-	"${SRC}/src/lua/lstate.c"
-	"${SRC}/src/lua/lstring.c"
-	"${SRC}/src/lua/lstrlib.c"
-	"${SRC}/src/lua/ltable.c"
-	"${SRC}/src/lua/ltablib.c"
-	"${SRC}/src/lua/ltm.c"
-	"${SRC}/src/lua/lundump.c"
-	"${SRC}/src/lua/lutf8lib.c"
-	"${SRC}/src/lua/lvm.c"
-	"${SRC}/src/lua/lzio.c"
+	"${SRC}/lib/lua/lapi.c"
+	"${SRC}/lib/lua/lauxlib.c"
+	"${SRC}/lib/lua/lbaselib.c"
+	"${SRC}/lib/lua/lcode.c"
+	"${SRC}/lib/lua/lcorolib.c"
+	"${SRC}/lib/lua/lctype.c"
+	"${SRC}/lib/lua/ldblib.c"
+	"${SRC}/lib/lua/ldebug.c"
+	"${SRC}/lib/lua/ldo.c"
+	"${SRC}/lib/lua/ldump.c"
+	"${SRC}/lib/lua/lfunc.c"
+	"${SRC}/lib/lua/lgc.c"
+	"${SRC}/lib/lua/linit.c"
+	"${SRC}/lib/lua/liolib.c"
+	"${SRC}/lib/lua/llex.c"
+	"${SRC}/lib/lua/lmathlib.c"
+	"${SRC}/lib/lua/lmem.c"
+	"${SRC}/lib/lua/loadlib.c"
+	"${SRC}/lib/lua/lobject.c"
+	"${SRC}/lib/lua/lopcodes.c"
+	"${SRC}/lib/lua/loslib.c"
+	"${SRC}/lib/lua/lparser.c"
+	"${SRC}/lib/lua/lstate.c"
+	"${SRC}/lib/lua/lstring.c"
+	"${SRC}/lib/lua/lstrlib.c"
+	"${SRC}/lib/lua/ltable.c"
+	"${SRC}/lib/lua/ltablib.c"
+	"${SRC}/lib/lua/ltm.c"
+	"${SRC}/lib/lua/lundump.c"
+	"${SRC}/lib/lua/lutf8lib.c"
+	"${SRC}/lib/lua/lvm.c"
+	"${SRC}/lib/lua/lzio.c"
 )
 
-target_include_directories("${EXE}" PRIVATE "${SRC}/src" "${BIN}/src")
+target_include_directories("${EXE}" PRIVATE
+	"${SRC}/src"
+	"${BIN}/src"
+
+	"${SRC}/lib"
+)
 
 # TODO: Add the libraries as Git submodules and include them in the build, but
 # still have the option to use system-installed libraries.
 
 option(USE_PKG_CONFIG "If TRUE, pkg-config will be used for finding packages, rather than CMake find_package." ${MINGW})
 
-if(USE_PKG_CONFIG)
+# Use POSIX support when available.
+if(UNIX)
+	find_library(MATH_LIBRARY m)
+	if(NOT MATH_LIBRARY STREQUAL MATH_LIBRARY-NOTFOUND)
+		target_link_libraries("${EXE}"
+			PRIVATE
+				${MATH_LIBRARY}
+		)
+	endif()
+
+	add_compile_definitions(_POSIX_VERSION=199309L)
+endif()
+
+# Adapt Lua to work in this CMake build system project.
+if (UNIX)
+	# When compiling Lua, compile-time warnings show up if POSIX features aren't
+	# used on POSIX platforms.
+	add_compile_definitions(LUA_USE_POSIX)
+endif()
+
+# SDL and SDL companion libraries.
+if(USE_VENDOR_LIBRARIES)
+	set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+	set(BUILD_SHARED_LIBS FALSE)
+
+	set(SDL_SHARED FALSE)
+	set(SDL_STATIC TRUE)
+	set(SDL_TEST FALSE)
+	set(SDL2_DISABLE_UNINSTALL ON)
+	add_subdirectory("lib/SDL" "${BIN}/lib/SDL")
+
+	set(SDL2IMAGE_VENDORED ON)
+	set(SDL2IMAGE_DEPS_SHARED OFF)
+	set(SDL2IMAGE_SAMPLES OFF)
+	set(SDL2IMAGE_INSTALL OFF)
+	set(SDL2IMAGE_TESTS OFF)
+	add_subdirectory("lib/SDL_image" "${BIN}/lib/SDL_image")
+
+	set(SDL2MIXER_VENDORED ON)
+	set(SDL2MIXER_DEPS_SHARED OFF)
+	set(SDL2MIXER_INSTALL OFF)
+	set(SDL2MIXER_SAMPLES OFF)
+	set(SDL2MIXER_VORBIS "VORBISFILE" CACHE STRING "Override")
+	set(SDL2MIXER_VORBIS_VORBISFILE_SHARED OFF)
+	set(SDL2MIXER_OPUS_SHARED OFF)
+	add_subdirectory("lib/SDL_mixer" "${BIN}/lib/SDL_mixer")
+
+	# SDL_main isn't used on all platforms.
+	if(TARGET SDL2::SDL2main)
+		target_link_libraries("${EXE}" PUBLIC SDL2::SDL2main)
+	endif()
+	target_link_libraries("${EXE}" PUBLIC
+		SDL2::SDL2-static
+		SDL2_image::SDL2_image-static
+		SDL2_mixer::SDL2_mixer-static
+	)
+elseif(USE_PKG_CONFIG)
 	# Using find_package for the needed libraries is broken in MSYS2, but
 	# using pkg-config works fine. And we can use the nice IMPORTED_TARGET
 	# feature for cleaner code here, as we already require a sufficient
@@ -266,22 +336,7 @@ else()
 	endif()
 endif()
 
-if(UNIX)
-	find_library(MATH_LIBRARY m)
-	if(NOT MATH_LIBRARY STREQUAL MATH_LIBRARY-NOTFOUND)
-		target_link_libraries("${EXE}"
-			PRIVATE
-				${MATH_LIBRARY}
-		)
-	endif()
-
-	# When compiling Lua, compile-time warnings show up if POSIX features aren't
-	# used on POSIX platforms.
-	add_compile_definitions(LUA_USE_POSIX)
-	add_compile_definitions(_POSIX_VERSION=199309L)
-endif()
-
-option(BUNDLE_LIBRARIES "Bundle the libraries needed by the game's executable, for distributable releases.")
+option(BUNDLE_LIBRARIES "Bundle the libraries needed by the game's executable, for distributable releases." FALSE)
 
 # TODO: Generate game resource files from resource source files at build time
 # into the build directory resource location; install the build directory
@@ -304,6 +359,8 @@ if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
 		install_runtime_dependencies("${EXE}")
 	endif()
 
+	# TODO: Generate a copyright file with all libraries' licenses appended to
+	# the base copyright file for installs.
 	install(FILES "${SRC}/copyright.txt" DESTINATION ".")
 
 	install(FILES "${SRC}/resource/font.fnt" DESTINATION "resource")
@@ -318,7 +375,7 @@ set(CPACK_PACKAGE_NAME "${NAME}")
 set(CPACK_PACKAGE_VENDOR "${ORG}")
 if(VCPKG_TARGET_TRIPLET)
 	set(CPACK_PACKAGE_FILE_NAME "${NAME} ${VCPKG_TARGET_TRIPLET}")
-elseif("${BUILD_TARGET}" STREQUAL Darwin)
+elseif(BUILD_TARGET STREQUAL Darwin)
 	set(CPACK_PACKAGE_FILE_NAME "${NAME} macOS")
 elseif(APPLE OR NOT CMAKE_SYSTEM_PROCESSOR)
 	set(CPACK_PACKAGE_FILE_NAME "${NAME} ${BUILD_TARGET}")

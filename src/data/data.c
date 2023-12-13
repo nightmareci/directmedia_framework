@@ -331,7 +331,7 @@ char* data_directory_get(const data_object* const data) {
 		}
 	}
 	if (has_directory) {
-		data_directory = malloc(end + 1u + 1u);
+		data_directory = mem_malloc(end + 1u + 1u);
 		if (data_directory == NULL) {
 			return NULL;
 		}
@@ -342,7 +342,7 @@ char* data_directory_get(const data_object* const data) {
 		}
 	}
 	else {
-		data_directory = malloc(1);
+		data_directory = mem_malloc(1);
 		if (data_directory == NULL) {
 			return NULL;
 		}
@@ -440,6 +440,56 @@ bool data_save(data_cache_object*const cache, const data_type type, const char*c
 
 		mem_free(key);
 	}
+
+	return true;
+}
+
+bool data_recreate(data_cache_object* const cache, const char* const filename) {
+	assert(cache != NULL);
+	assert(filename != NULL);
+
+	char* const full_filename = alloc_sprintf("%s%s", cache->save_path, filename);
+	if (full_filename == NULL) {
+		return false;
+	}
+	SDL_RWops* const rwops = SDL_RWFromFile(full_filename, "wb");
+
+	if (rwops == NULL) {
+		mem_free(full_filename);
+		return false;
+	}
+
+	SDL_RWclose(rwops);
+	mem_free(full_filename);
+
+	return true;
+}
+
+bool data_append(data_cache_object* const cache, const char* const filename, const void* const bytes, const size_t size) {
+	assert(cache != NULL);
+	assert(filename != NULL);
+	assert(bytes != NULL);
+	assert(size > 0u);
+
+	char* const full_filename = alloc_sprintf("%s%s", cache->save_path, filename);
+	if (full_filename == NULL) {
+		return false;
+	}
+	SDL_RWops* const rwops = SDL_RWFromFile(full_filename, "ab");
+
+	if (rwops == NULL) {
+		mem_free(full_filename);
+		return false;
+	}
+
+	if (SDL_RWwrite(rwops, bytes, 1u, size) < size) {
+		SDL_RWclose(rwops);
+		mem_free(full_filename);
+		return false;
+	}
+
+	SDL_RWclose(rwops);
+	mem_free(full_filename);
 
 	return true;
 }

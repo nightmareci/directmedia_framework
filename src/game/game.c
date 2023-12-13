@@ -24,14 +24,15 @@
 
 #include "game/game.h"
 #include "render/render.h"
-#include "util/mathematics.h"
+#include "main/app.h"
+#include "util/maths.h"
 #include "util/nanotime.h"
 #include "util/mem.h"
 #include "SDL.h"
 #include <inttypes.h>
-#include <math.h>
 
 #define TICK_RATE UINT64_C(60)
+#define TICK_DURATION (NANOTIME_NSEC_PER_SEC / TICK_RATE)
 static uint64_t ticks;
 static bool reset_average;
 static uint64_t average_ticks;
@@ -47,8 +48,8 @@ fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in\n
 culpa qui officia deserunt mollit anim id est laborum.\
 ";
 
-bool game_init(uint64_t* const tick_rate) {
-	*tick_rate = TICK_RATE;
+bool game_init(uint64_t* const tick_duration) {
+	*tick_duration = TICK_DURATION;
 	ticks = 0u;
 	last_tick_time = nanotime_now();
 	reset_average = true;
@@ -56,16 +57,17 @@ bool game_init(uint64_t* const tick_rate) {
 	return true;
 }
 
-bool game_update(bool* const quit_now) {
-	if (!render_start()) {
-		return false;
-	}
-
+bool game_update(bool* const quit_now, const uint64_t current_time) {
 	*quit_now = false;
 
 	// TODO: Implement a higher-level input API that doesn't present any device
 	// specifics to the game; e.g., only abstract inputs are made available,
-	// like "menu confirm/deny", not "button A/B".
+	// like "menu confirm/deny", not "button A/B" (I think that's conventionally
+	// called "action sets" nowadays). Though do still provide a "physical"
+	// layout, i.e., the API would expose BUTTON_NORTH, BUTTON_EAST,
+	// BUTTON_SOUTH, and BUTTON_WEST, not arbitrary button names, as there's
+	// cases where it's appropriate to use the same physical layout for all
+	// four-button controllers regardless of platform.
 	const Uint8* const keys = SDL_GetKeyboardState(NULL);
 	if (keys[SDL_SCANCODE_ESCAPE]) {
 		*quit_now = true;
@@ -76,17 +78,21 @@ bool game_update(bool* const quit_now) {
 		reset_average = true;
 	}
 
-	const uint64_t current_tick_time = nanotime_now();
-	const double tick_rate = (double)NANOTIME_NSEC_PER_SEC / (current_tick_time - last_tick_time);
+	if (!render_start(640.0f, 480.0f)) {
+		return false;
+	}
+
+	const uint64_t current_tick_duration = nanotime_interval(last_tick_time, current_time, nanotime_now_max());
+	const double current_tick_rate = (double)NANOTIME_NSEC_PER_SEC / current_tick_duration;
 	if (!reset_average) {
 		average_ticks++;
-		average_duration += current_tick_time - last_tick_time;
+		average_duration += current_tick_duration;
 	}
-	last_tick_time = current_tick_time;
+	last_tick_time = current_time;
 	ticks++;
 
-	const uint8_t shade = (uint8_t)((sinf(M_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f) * 255.0f);
-	if (!render_clear(shade, shade, shade, 255u)) {
+	const float shade = sinf(MATHS_PIf * fmodf(ticks / (float)TICK_RATE, 1.0f)) * 0.25f + 0.25f;
+	if (!render_clear(shade, shade, shade, 1.0f)) {
 		return false;
 	}
 
@@ -95,19 +101,22 @@ bool game_update(bool* const quit_now) {
 			Ticks: %" PRIu64 "\n\n\
 			Current tick rate: %.9f\n\n\
 			Average tick rate: %.9f\n\n\
+			Current render frame rate: %.9f\n\n\
 			Total dynamic memory in use: %.04f MiB\n\n\
 			Total physical memory available: %.04f MiB\n\n\
 			Test text:\n%s",
 
 			ticks,
-			tick_rate,
+			current_tick_rate,
 			average_ticks / (average_duration / (double)NANOTIME_NSEC_PER_SEC),
-			mem_total() / 1048576.0,
-			mem_left() / 1048576.0,
+			app_render_frame_rate_get(),
+			mem_total() / (double)BYTES_PER_MEBIBYTE,
+			mem_left() / (double)BYTES_PER_MEBIBYTE,
 			text
 		)) {
 			return false;
 		}
+		UINT64_MAX;
 	}
 	else {
 		reset_average = false;
@@ -117,14 +126,16 @@ bool game_update(bool* const quit_now) {
 			Ticks: %" PRIu64 "\n\n\
 			Current tick rate: %.9f\n\n\
 			Average tick rate: N/A\n\n\
+			Current render frame rate: %.9f\n\n\
 			Total dynamic memory in use: %.04f MiB\n\n\
 			Total physical memory available: %.04f MiB\n\n\
 			Test text:\n%s",
 			
 			ticks,
-			tick_rate,
-			mem_total() / 1048576.0,
-			mem_left() / 1048576.0,
+			current_tick_rate,
+			app_render_frame_rate_get(),
+			mem_total() / (double)BYTES_PER_MEBIBYTE,
+			mem_left() / (double)BYTES_PER_MEBIBYTE,
 			text
 		)) {
 			return false;
@@ -134,11 +145,11 @@ bool game_update(bool* const quit_now) {
 	sprite_type sprites[] = {
 		{
 			.src = { 0.0f, 0.0f, 16.0f, 16.0f },
-			.dst = { 16.0f, 16.0f, 120.0f, 120.0f }
+			.dst = { 0.0f, 0.0f, 16.0f, 16.0f }
 		},
 		{
 			.src = { 0.0f, 0.0f, 16.0f, 16.0f },
-			.dst = { 16.0f + 120.0f - 30.0f, 16.0f + 120.0f - 30.0f, 60.0f, 60.0f }
+			.dst = { 640.0f - 16.0f, 480.0f - 16.0f, 16.0f, 16.0f }
 		}
 	};
 

@@ -24,6 +24,7 @@
 
 #include "render/print.h"
 #include "util/text.h"
+#include "util/log.h"
 #include "util/mem.h"
 #include <stdlib.h>
 #include <stdarg.h>
@@ -46,8 +47,7 @@ bool print_layer_text(data_font_object* const font, layers_object* const layers,
 	 */
 	//if (!(font->font->bits1 & FONT_BITS1_UNICODE)) {
 	if (font->font->format != FONT_FORMAT_BINARY && !(font->font->bits1 & FONT_BITS1_UNICODE)) {
-		fprintf(stderr, "Error: Font used for printing text is not a Unicode font\n");
-		fflush(stderr);
+		log_printf("Error: Font used for printing text is not a Unicode font\n");
 		return false;
 	}
 

@@ -46,6 +46,9 @@ bool layers_shrink_layer(layers_object* const layers, const size_t layer_index);
 
 void layers_restart(layers_object* const layers);
 
+void layers_screen_reset(layers_object* const layers);
+void layers_screen_set(layers_object* const layers, const float width, const float height);
+
 /*
  * Add sprites to a layer. Sprites added to a layer are drawn in submission
  * order. And layers are drawn from least-layer-index-to-greatest,

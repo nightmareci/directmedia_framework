@@ -23,6 +23,7 @@
  */
 
 #include "data/data_types.h"
+#include "util/log.h"
 #include "util/mem.h"
 #include "SDL_image.h"
 #include "SDL_surface.h"
@@ -30,7 +31,7 @@
 static bool create(data_object* const data, SDL_RWops* const rwops) {
 	data->texture = mem_calloc(1u, sizeof(data_texture_object));
 	if (data->texture == NULL) {
-		fprintf(stderr, "Error allocating data while loading a texture\n");
+		log_printf("Error allocating data while loading a texture\n");
 		return false;
 	}
 

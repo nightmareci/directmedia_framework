@@ -24,23 +24,49 @@
  */
 
 #include <math.h>
+#include <stdint.h>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-#ifndef M_PIf
-#define M_PIf 3.14159265358979323846f
-#endif
+#define MATHS_PId 3.14159265358979323846
+#define MATHS_PIf 3.14159265358979323846f
 
-#define TORADIANS(degrees) ((degrees) * (M_PIf / 180.0f))
-#define TODEGREES(radians) ((radians) * (180.0f / M_PIf))
+#define MATHS_TO_RADIANS(degrees) ((degrees) * (MATHS_PIf / 180.0f))
+#define MATHS_TO_DEGREES(radians) ((radians) * (180.0f / MATHS_PIf))
+
+// TODO: Change vector types to a union of all GLSL named components and an
+// array member that can be numerically indexed. Will require endian-dependent
+// ordering of the named components.
+
+typedef int32_t ivec2[2];
+typedef int32_t ivec3[3];
+typedef int32_t ivec4[4];
+typedef int32_t* ivecptr;
+
+typedef uint32_t uvec2[2];
+typedef uint32_t uvec3[3];
+typedef uint32_t uvec4[4];
+typedef uint32_t* uvecptr;
 
 typedef float vec2[2];
 typedef float vec3[3];
 typedef float vec4[4];
+typedef float* vecptr;
 
+typedef double dvec2[2];
+typedef double dvec3[3];
+typedef double dvec4[4];
+typedef double* dvecptr;
+
+typedef float mat2[4];
 typedef float mat3[9];
 typedef float mat4[16];
+typedef float* matptr;
+
+typedef double dmat2[4];
+typedef double dmat3[9];
+typedef double dmat4[16];
+typedef double* dmatptr;
+
+// TODO: Implement math functions as type-generic.
 
 void vec3_copy(vec3 dst, const vec3 src);
 float vec3_dot(const vec3 lhs, const vec3 rhs);

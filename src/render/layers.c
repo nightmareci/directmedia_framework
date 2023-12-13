@@ -126,6 +126,14 @@ void layers_restart(layers_object* const layers) {
 	}
 }
 
+void layers_screen_reset(layers_object* const layers) {
+	sprites_screen_reset(layers->sprites);
+}
+
+void layers_screen_set(layers_object* const layers, const float width, const float height) {
+	sprites_screen_set(layers->sprites, width, height);
+}
+
 bool layers_sprites_add(layers_object* const layers, data_texture_object* const sheet, const size_t layer_index, const size_t num_added, sprite_type* const added_sprites) {
 	assert(layers != NULL);
 	assert(layer_index < layers->size);

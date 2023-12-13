@@ -1,4 +1,6 @@
 #include "util/mem.h"
+#include "util/log.h"
+#include "util/queue.h"
 #include "SDL_atomic.h"
 
 // TODO: Support more than Linux here?
@@ -99,7 +101,7 @@ static void *(SDLCALL *orig_realloc)(void *mem, size_t size) = NULL;
 static void (SDLCALL *orig_free)(void *mem) = NULL;
 
 bool mem_init() {
-	SDL_AtomicSetPtr((void**)&total_alloc, NULL);
+	SDL_AtomicSetPtr((void**)&total_alloc, (void*)(uintptr_t)0u);
 
 	SDL_GetMemoryFunctions(
 		&orig_malloc,
@@ -135,8 +137,7 @@ static bool total_alloc_add(void* const mem) {
 	do {
 		old_total = (size_t)(uintptr_t)SDL_AtomicGetPtr(&total_alloc);
 		if (size > SIZE_MAX - old_total) {
-			fprintf(stderr, "size > SIZE_MAX - old_total\n");
-			fflush(stderr);
+			log_printf("Error allocating memory: size > SIZE_MAX - old_total\n");
 			return false;
 		}
 	} while (!SDL_AtomicCASPtr(&total_alloc, (void*)(uintptr_t)old_total, (void*)(uintptr_t)(old_total + size)));
@@ -149,8 +150,7 @@ static void total_alloc_sub(void* const mem) {
 	do {
 		old_total = (size_t)(uintptr_t)SDL_AtomicGetPtr(&total_alloc);
 		if (size > old_total) {
-			fprintf(stderr, "size > old_total\n");
-			fflush(stderr);
+			log_printf("Error freeing memory: size > old_total\n");
 			abort();
 		}
 	} while (!SDL_AtomicCASPtr(&total_alloc, (void*)(uintptr_t)old_total, (void*)(uintptr_t)(old_total - size)));
@@ -266,3 +266,149 @@ bool mem_init() {
 }
 
 #endif
+
+void* mem_lua_alloc(void* userdata, void* mem, size_t old_size, size_t new_size) {
+	if (new_size > 0u) {
+		return mem_realloc(mem, new_size);
+	}
+	else {
+		mem_free(mem);
+		return NULL;
+	}
+}
+
+// TODO: Make mem_bump_* thread-safe. Probably require that create/destroy are
+// called in a "controlling" thread, where the object is passed down to other
+// threads, with the controlling thread calling update once the subordinate
+// threads' usage is guaranteed to be completed at the point update is called,
+// then the controlling thread allowing the subordinate threads to use the
+// object up until the next update, etc. The API can be "difficult" to use for
+// better performance/safety, as it's intended for the engine internals managed
+// by engine-developers, not engine-users.
+
+struct mem_bump_object {
+	void* chunk;
+	size_t chunk_pos;
+	size_t chunk_size;
+	size_t next_size;
+
+	// TODO: Looks like chunk_pos could just be advanced every allocation, then
+	// if pos is beyond the current size in update, reallocate the chunk up to
+	// pos in update, negating the need for bumps_waiting entirely.
+	bool bumps_waiting;
+
+	// TODO: This can probably can be a multiple-producer/single-consumer
+	// conqueue.
+	queue_object* bumps;
+};
+
+mem_bump_object* mem_bump_create(const size_t total_size) {
+	mem_bump_object* const allocator = mem_malloc(sizeof(mem_bump_object));
+	if (allocator == NULL) {
+		return NULL;
+	}
+
+	if (total_size > 0u) {
+		allocator->chunk = mem_malloc(total_size);
+		if (allocator->chunk == NULL) {
+			mem_free(allocator);
+			return NULL;
+		}
+	}
+	else {
+		allocator->chunk = NULL;
+	}
+	allocator->chunk_size = total_size;
+	allocator->chunk_pos = 0u;
+	allocator->next_size = 0u;
+
+	allocator->bumps = queue_create();
+	if (allocator->bumps == NULL) {
+		mem_free(allocator->chunk);
+		mem_free(allocator);
+		return NULL;
+	}
+	allocator->bumps_waiting = false;
+
+	return allocator;
+}
+
+void mem_bump_destroy(mem_bump_object* const allocator) {
+	assert(allocator != NULL);
+
+	for (void* bump = queue_dequeue(allocator->bumps); bump != NULL; bump = queue_dequeue(allocator->bumps)) {
+		mem_free(bump);
+	}
+	queue_destroy(allocator->bumps);
+	mem_free(allocator->chunk);
+	mem_free(allocator);
+}
+
+void* mem_bump_malloc(mem_bump_object* const allocator, const size_t size) {
+	assert(allocator != NULL);
+	assert(size > 0u);
+
+	if (allocator->chunk_pos + size > allocator->chunk_size) {
+		void* const bump = mem_malloc(size);
+		if (bump == NULL) {
+			return NULL;
+		}
+		allocator->next_size += size;
+		if (!queue_enqueue(allocator->bumps, bump)) {
+			mem_free(bump);
+			return NULL;
+		}
+		allocator->bumps_waiting = true;
+		return bump;
+	}
+	else {
+		void* const bump = allocator->chunk + allocator->chunk_pos;
+		allocator->chunk_pos += size;
+		return bump;
+	}
+}
+
+void* mem_bump_calloc(mem_bump_object* const allocator, const size_t nmemb, const size_t size) {
+	assert(allocator != NULL);
+	assert(size > 0u);
+
+	if (allocator->chunk_pos + nmemb * size > allocator->chunk_size) {
+		void* const bump = mem_calloc(nmemb, size);
+		if (bump == NULL) {
+			return NULL;
+		}
+		allocator->next_size += nmemb * size;
+		if (!queue_enqueue(allocator->bumps, bump)) {
+			mem_free(bump);
+			return NULL;
+		}
+		allocator->bumps_waiting = true;
+		return bump;
+	}
+	else {
+		void* const bump = allocator->chunk + allocator->chunk_pos;
+		memset(bump, 0, nmemb * size);
+		allocator->chunk_pos += nmemb * size;
+		return bump;
+	}
+}
+
+bool mem_bump_update(mem_bump_object* const allocator) {
+	if (allocator->bumps_waiting) {
+		for (void* bump = queue_dequeue(allocator->bumps); bump != NULL; bump = queue_dequeue(allocator->bumps)) {
+			mem_free(bump);
+		}
+
+		mem_free(allocator->chunk);
+		allocator->chunk_size = allocator->next_size;
+		allocator->chunk = mem_malloc(allocator->next_size);
+		if (allocator->chunk == NULL) {
+			return false;
+		}
+
+		allocator->bumps_waiting = false;
+	}
+
+	allocator->next_size = 0u;
+	return true;
+}

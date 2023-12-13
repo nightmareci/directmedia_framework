@@ -33,20 +33,45 @@
 #include <assert.h>
 
 #define lengthof(array) (sizeof((array)) / sizeof(*(array)))
-#define lengthoffield(type, field) sizeof(((type*)NULL)->field) / sizeof(*((type*)NULL)->field)
+#define lengthoffield(type, array_field) sizeof(((type*)NULL)->array_field) / sizeof(*((type*)NULL)->array_field)
 #define sizeoffield(type, field) sizeof(((type*)NULL)->field)
+
+typedef enum bytes_per_type {
+	/*
+	 * Use the minimum-required-size UINT*_C() function-like macros here for
+	 * each constant. And don't include constants here that go beyond the range
+	 * of SIZE_MAX; that would result in bytes_per_type being a larger type than
+	 * size_t, requiring completely unnecessary conversions between size_t and
+	 * bytes_per_type with all BYTES_PER_* constants.
+	 */
+
+#if SIZE_MAX >= UINT32_MAX
+	BYTES_PER_MEBIBYTE = UINT32_C(1048576),
+#endif
+
+	/*
+	 * This just ensures the BYTES_PER_* constants' range matches size_t, so
+	 * direct usage of the bytes_per_type is fully compatible with
+	 * size_t/pointer math, likely resulting in no type conversion in the
+	 * generated machine code between bytes_per_type and size_t.
+	 */
+	BYTES_PER_MAX = SIZE_MAX
+} bytes_per_type;
 
 /*
  * TODO: Change from using a compile-time option for enabling/disabling memory
  * debugging to a runtime option, that must be passed in before startup. That
  * way, the prebuilt release builds only capable of running Lua script code can
  * have memory debugging enabled by users, without having to rebuild with memory
- * debugging enabled.
+ * debugging enabled. And use separate functions for no-debugging and debugging,
+ * so that the unnecessary overhead of conditional checks aren't necessary when
+ * debugging is off; just use function pointers to choose the debugging mode.
  */
 
 /*
- * Initializes the memory subsystem. Call first thing at startup, in the main
- * function.
+ * Initializes the memory subsystem. Call first thing at startup, before any
+ * dynamic memory allocations, in the main thread, before any threads have been
+ * created.
  */
 bool mem_init();
 
@@ -90,7 +115,7 @@ size_t mem_total();
 #endif
 
 /*
- * mem_sizeof returns the actual size of the mem_*-function allocated memory.
+ * mem_sizeof returns the actual size of the mem_*-functions' allocated memory.
  * The returned size is greater than or equal to the size originally requested
  * at the time of allocation; do not make use of the additional memory beyond
  * the originally requested size, as that's bad programming practice.
@@ -128,7 +153,7 @@ size_t mem_total();
  * case is for checking available memory in performance-focused applications,
  * such as game development, especially game development on very
  * memory-constrained platforms. If SIZE_MAX is returned by mem_left, either the
- * current platform doesn't have a real implementation to check available
+ * current platform doesn't have a real implementation to check for available
  * memory, or the actual amount of available memory may be larger than SIZE_MAX,
  * but can't be indicated by a single size_t-type count of bytes; you might
  * never encounter a situation where there's a real possibility of SIZE_MAX
@@ -137,9 +162,14 @@ size_t mem_total();
  * concurrently with the thread that called mem_left, every call of mem_left can
  * return a different value. The returned value might only be an estimate, and
  * might even not be truly reflective of the amount of memory the application
- * could reasonably allocate without disrupting other processes.
+ * could reasonably allocate without crashing nor disrupting other processes.
  */
 size_t mem_left();
+
+/*
+ * Allocation function suitable for passing to lua_newstate().
+ */
+void* mem_lua_alloc(void* userdata, void* mem, size_t old_size, size_t new_size);
 
 /*
  * TODO: Implement and use a game-development-optimized bump memory allocator,
@@ -149,8 +179,15 @@ size_t mem_left();
  * function (mem_bump_update?); that would result in the bump memory allocator
  * magically producing good performance without requiring the developer
  * preallocate sufficient memory ahead of time (though provide that as an
- * option). Allocations produced by the bump memory allocator *must* be freed
- * before the next update point, though, so implement additional memory
- * debugging that checks that no unfreed bump allocations exist at an update
- * point.
+ * option).
  */
+
+// TODO: Finalize the bump allocator code and use it once finalized.
+
+typedef struct mem_bump_object mem_bump_object;
+
+mem_bump_object* mem_bump_create(const size_t total_size);
+void mem_bump_destroy(mem_bump_object* const allocator);
+void* mem_bump_malloc(mem_bump_object* const allocator, const size_t size);
+void* mem_bump_calloc(mem_bump_object* const allocator, const size_t nmemb, const size_t size);
+bool mem_bump_update(mem_bump_object* const allocator);

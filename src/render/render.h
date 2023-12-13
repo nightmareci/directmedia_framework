@@ -33,11 +33,11 @@ bool render_init(frames_object* const frames);
 
 void render_deinit();
 
-bool render_start();
+bool render_start(const float width, const float height);
 
 bool render_end();
 
-bool render_clear(const uint8_t red, const uint8_t green, const uint8_t blue, const uint8_t alpha);
+bool render_clear(const float red, const float green, const float blue, const float alpha);
 
 bool render_sprites(const char* const sheet_filename, const size_t layer_index, const size_t num_added, const sprite_type* const added_sprites);
 

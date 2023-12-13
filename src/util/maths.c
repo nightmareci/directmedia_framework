@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "util/mathematics.h"
+#include "util/maths.h"
 
 void vec3_copy(vec3 dst, const vec3 src) {
 	for (unsigned i = 0u; i < 3u; i++) {
@@ -152,7 +152,7 @@ void mat4_frustum(mat4 dst, const float left, const float right, const float bot
 }
 
 void mat4_perspective(mat4 dst, const float fovy, const float aspect, const float near, const float far) {
-	const float half_fovy = TORADIANS(fovy) / 2.0f;
+	const float half_fovy = MATHS_TO_RADIANS(fovy) / 2.0f;
 	const float top = near * tanf(half_fovy);
 	const float bottom = -top;
 	const float right = top * aspect;
@@ -201,7 +201,7 @@ void mat4_lookat(mat4 dst, const vec3 eye, const vec3 center, const vec3 up) {
 }
 
 void mat4_rotate(mat4 dst, const float angle, const vec3 axis) {
-	const float angle_radians = TORADIANS(angle);
+	const float angle_radians = MATHS_TO_RADIANS(angle);
 	const float cosine_pos = cosf(angle_radians);
 	const float cosine_neg = 1.0f - cosine_pos;
 	const float sine_pos = cosf(angle_radians);
@@ -233,7 +233,7 @@ void mat4_rotate(mat4 dst, const float angle, const vec3 axis) {
 }
 
 void mat4_rotatex(mat4 dst, const float angle) {
-	const float angle_radians = TORADIANS(angle);
+	const float angle_radians = MATHS_TO_RADIANS(angle);
 	const float cosine = cosf(angle_radians);
 	const float sine = sinf(angle_radians);
 	const mat3 rotate = {
@@ -264,7 +264,7 @@ void mat4_rotatex(mat4 dst, const float angle) {
 }
 
 void mat4_rotatey(mat4 dst, const float angle) {
-	const float angle_radians = TORADIANS(angle);
+	const float angle_radians = MATHS_TO_RADIANS(angle);
 	const float cosine = cosf(angle_radians);
 	const float sine = sinf(angle_radians);
 	const mat3 rotate = {
@@ -295,7 +295,7 @@ void mat4_rotatey(mat4 dst, const float angle) {
 }
 
 void mat4_rotatez(mat4 dst, const float angle) {
-	const float angle_radians = TORADIANS(angle);
+	const float angle_radians = MATHS_TO_RADIANS(angle);
 	const float cosine = cosf(angle_radians);
 	const float sine = sinf(angle_radians);
 	const mat3 rotate = {

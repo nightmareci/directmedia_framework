@@ -23,6 +23,7 @@
  */
 
 #include "render/frames.h"
+#include "util/log.h"
 #include "util/conqueue.h"
 #include "util/queue.h"
 #include "util/mem.h"
@@ -39,7 +40,6 @@ typedef struct command_object {
 
 typedef struct frame_object {
 	queue_object* commands;
-	bool ended;
 } frame_object;
 
 typedef struct frames_object {
@@ -93,32 +93,29 @@ bool frames_destroy(frames_object* const frames) {
 	return true;
 }
 
-frames_status_type frames_start(frames_object* const frames) {
+bool frames_start(frames_object* const frames) {
 	assert(frames != NULL);
 	assert(frames->frame_queues != NULL);
 
 	frame_object* const next_frame = mem_malloc(sizeof(frame_object));
 	if (next_frame == NULL) {
-		return FRAMES_STATUS_ERROR;
+		return false;
 	}
 
 	next_frame->commands = queue_create();
 	if (next_frame->commands == NULL) {
 		mem_free(next_frame);
-		return FRAMES_STATUS_ERROR;
+		return false;
 	}
-
-	next_frame->ended = false;
 
 	frames->next_latest_frame = next_frame;
 
-	return FRAMES_STATUS_SUCCESS;
+	return true;
 }
 
 bool frames_end(frames_object* const frames) {
 	assert(frames->next_latest_frame != NULL);
 
-	frames->next_latest_frame->ended = true;
 	if (!conqueue_enqueue(frames->frame_queues, frames->next_latest_frame)) {
 		queue_destroy(frames->next_latest_frame->commands);
 		mem_free(frames->next_latest_frame);
@@ -169,7 +166,11 @@ frames_status_type frames_draw_latest(frames_object* const frames) {
 		return FRAMES_STATUS_NO_FRAMES;
 	}
 
-	bool ended = false;
+	size_t screen_size[2];
+	app_render_size_get(&screen_size[0], &screen_size[1]);
+	glViewport(0, 0, screen_size[0], screen_size[1]);
+
+	bool latest_frame_found = false;
 	for (
 		frame_object* frame = (frame_object*)conqueue_dequeue(frames->frame_queues);
 		frame != NULL;
@@ -194,7 +195,6 @@ frames_status_type frames_draw_latest(frames_object* const frames) {
 			}
 		}
 
-		// TODO: Profile with and without this here, to see what performance/memory usage looks like. But it might be the case that this should be here just to avoid too many operations queued in the GL at once.
 		if (frame != latest_frame) {
 			glFlush();
 		}
@@ -202,17 +202,17 @@ frames_status_type frames_draw_latest(frames_object* const frames) {
 			SDL_MemoryBarrierRelease();
 			SDL_AtomicCASPtr((void**)&frames->latest_frame, latest_frame, NULL);
 			SDL_MemoryBarrierAcquire();
-			ended = frame->ended;
+			latest_frame_found = true;
 		}
 	}
 
-	if (ended) {
+	if (latest_frame_found) {
 		SDL_Window* const window = app_window_get();
 		assert(window != NULL);
 		SDL_GL_SwapWindow(window);
-		return FRAMES_STATUS_SUCCESS;
+		return FRAMES_STATUS_PRESENT;
 	}
 	else {
-		return FRAMES_STATUS_NO_END;
+		return FRAMES_STATUS_NO_PRESENT;
 	}
 }

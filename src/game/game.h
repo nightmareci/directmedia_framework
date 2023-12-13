@@ -27,12 +27,12 @@
 #include <stdbool.h>
 
 /*
- * Give the game a chance to initialize. tick_rate must be set to the duration
- * of game ticks. This function must not call any render functions. Return true
- * if initialization was successful, otherwise return false in the case of fatal
- * errors.
+ * Give the game a chance to initialize. tick_duration must be set to the
+ * duration of game ticks. This function must not call any render functions.
+ * Return true if initialization was successful, otherwise return false in the
+ * case of fatal errors.
  */
-bool game_init(uint64_t* const tick_rate);
+bool game_init(uint64_t* const tick_duration);
 
 /*
  * Update the game for a tick. *quit must be set to true or false every tick.
@@ -40,4 +40,4 @@ bool game_init(uint64_t* const tick_rate);
  * for the game to continue running. Return true if updating was successful,
  * otherwise return false in the case of fatal errors.
  */
-bool game_update(bool* const quit);
+bool game_update(bool* const quit, const uint64_t current_time);

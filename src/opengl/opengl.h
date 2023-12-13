@@ -47,9 +47,9 @@ GLuint opengl_program_create(const GLchar* const vertex_src, const GLchar* const
 
 /*
  * Indicates if a previous OpenGL API call generated an error. This function
- * will print the particular OpenGL error to stderr, along with the provided
- * error message if the message pointer isn't NULL, and returns true;
- * otherwise, if there's no error at the point this function is called, nothing
- * is printed to stderr, and false is returned.
+ * will log the particular OpenGL error, along with the provided error message
+ * if the message pointer isn't NULL, and returns true; otherwise, if there's no
+ * error at the point this function is called, nothing is logged, and false is
+ * returned.
  */
 bool opengl_error(const char* const message);

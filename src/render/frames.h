@@ -56,9 +56,9 @@ typedef struct command_funcs {
 } command_funcs;
 
 typedef enum frames_status_type {
-	FRAMES_STATUS_SUCCESS,
+	FRAMES_STATUS_PRESENT,
 	FRAMES_STATUS_NO_START,
-	FRAMES_STATUS_NO_END,
+	FRAMES_STATUS_NO_PRESENT,
 	FRAMES_STATUS_NO_FRAMES,
 	FRAMES_STATUS_ERROR
 } frames_status_type;
@@ -67,7 +67,7 @@ frames_object* frames_create();
 
 bool frames_destroy(frames_object* const frames);
 
-frames_status_type frames_start(frames_object* const frames);
+bool frames_start(frames_object* const frames);
 
 bool frames_end(frames_object* const frames);
 

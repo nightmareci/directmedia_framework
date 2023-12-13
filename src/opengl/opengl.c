@@ -23,6 +23,7 @@
  */
 
 #include "opengl/opengl.h"
+#include "util/log.h"
 #include "util/mem.h"
 #include "SDL.h"
 #include <stdio.h>
@@ -58,8 +59,15 @@ GLuint opengl_shader_create(const GLenum type, const GLchar* const src) {
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_log_length);
 		info_log = mem_malloc(info_log_length);
 		glGetShaderInfoLog(shader, info_log_length, NULL, info_log);
-		fprintf(stderr, "Error: Could not compile %s shader. OpenGL shader info log:\n%s\n", (type == GL_VERTEX_SHADER) ? "vertex" : (type == GL_FRAGMENT_SHADER) ? "fragment" : "unknown", info_log);
-		fflush(stderr);
+		log_printf(
+			"Error compiling %s shader. OpenGL shader info log:\n%s\n",
+			(type == GL_VERTEX_SHADER) ?
+				"vertex" :
+			(type == GL_FRAGMENT_SHADER) ?
+				"fragment" :
+				"unknown",
+			info_log
+		);
 		mem_free(info_log);
 		return 0u;
 	}
@@ -77,8 +85,7 @@ GLuint opengl_program_create(const GLchar* const vertex_src, const GLchar* const
 
 	const GLuint program = glCreateProgram();
 	if (program == 0u) {
-		fprintf(stderr, "Error: Could not create OpenGL program object.\n");
-		fflush(stderr);
+		log_printf("Error creating OpenGL program object.\n");
 		glDeleteShader(vertex_shader);
 		glDeleteShader(fragment_shader);
 		return 0u;
@@ -106,8 +113,7 @@ GLuint opengl_program_create(const GLchar* const vertex_src, const GLchar* const
 		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_length);
 		info_log = mem_malloc(info_log_length);
 		glGetProgramInfoLog(program, info_log_length, NULL, info_log);
-		fprintf(stderr, "Error: Could not link shading program. OpenGL program info log:\n%s\n", info_log);
-		fflush(stderr);
+		log_printf("Error linking shading program. OpenGL program info log:\n%s\n", info_log);
 		mem_free(info_log);
 		glDeleteProgram(program);
 		return 0u;
@@ -123,30 +129,29 @@ bool opengl_error(const char* const message) {
 
 		switch (error) {
 		default:
-			fprintf(stderr, "Unknown OpenGL error\n");
+			log_printf("Unknown OpenGL error\n");
 			break;
 
 		case GL_INVALID_ENUM:
-			fprintf(stderr, "Invalid OpenGL enum value\n");
+			log_printf("Invalid OpenGL enum value\n");
 			break;
 
 		case GL_INVALID_VALUE:
-			fprintf(stderr, "Invalid OpenGL numeric value\n");
+			log_printf("Invalid OpenGL numeric value\n");
 			break;
 
 		case GL_INVALID_OPERATION:
-			fprintf(stderr, "Invalid OpenGL operation\n");
+			log_printf("Invalid OpenGL operation\n");
 			break;
 
 		case GL_INVALID_FRAMEBUFFER_OPERATION:
-			fprintf(stderr, "Invalid OpenGL framebuffer operation\n");
+			log_printf("Invalid OpenGL framebuffer operation\n");
 			break;
 
 		case GL_OUT_OF_MEMORY:
-			fprintf(stderr, "Out of memory for OpenGL\n");
+			log_printf("Out of memory for OpenGL\n");
 			break;
 		}
-		fflush(stderr);
 		return true;
 	}
 	else {

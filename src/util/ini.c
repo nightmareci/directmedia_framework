@@ -25,6 +25,7 @@
 #include "util/ini.h"
 #include "util/dict.h"
 #include "util/text.h"
+#include "util/log.h"
 #include "util/mem.h"
 #include <ctype.h>
 #include <stdlib.h>
@@ -96,8 +97,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 			}
 
 			if (len == 3u && (line[1] == ' ' || line[1] == '\t')) {
-				fprintf(stderr, "Invalid empty section\n");
-				fflush(stderr);
+				log_printf("Invalid empty section\n");
 				return NULL;
 			}
 
@@ -110,8 +110,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 				end--;
 			}
 			if (start > end) {
-				fprintf(stderr, "Invalid empty section\n");
-				fflush(stderr);
+				log_printf("Invalid empty section\n");
 				return NULL;
 			}
 
@@ -133,8 +132,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 		}
 		else if (line[0] != '=') {
 			if (section_str == NULL) {
-				fprintf(stderr, "Key-value line present without a section preceding it\n");
-				fflush(stderr);
+				log_printf("Key-value line present without a section preceding it\n");
 				return NULL;
 			}
 
@@ -150,8 +148,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 				end_key++;
 			}
 			if (!found_name || end_key == len || end_key == len - 1u) {
-				fprintf(stderr, "Invalid key-value line\n");
-				fflush(stderr);
+				log_printf("Invalid key-value line\n");
 				return NULL;
 			}
 			start_value = end_key + 1u;
@@ -168,8 +165,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 				start_value++;
 			}
 			if (start_value == len) {
-				fprintf(stderr, "Invalid key-value line\n");
-				fflush(stderr);
+				log_printf("Invalid key-value line\n");
 				mem_free(key_str);
 				return NULL;
 			}
@@ -177,8 +173,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 			size_t end_value = len;
 			if (line[start_value] == '"') {
 				if (line[start_value + 1u] == '"') {
-					fprintf(stderr, "Invalid empty string for key's value\n");
-					fflush(stderr);
+					log_printf("Invalid empty string for key's value\n");
 					mem_free(key_str);
 					return NULL;
 				}
@@ -188,8 +183,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 					end_value--;
 				} while (end_value >= start_value && (line[end_value] == ' ' || line[end_value] == '\t'));
 				if (line[end_value] != '"') {
-					fprintf(stderr, "Invalid quoted value for key; no ending quotation mark\n");
-					fflush(stderr);
+					log_printf("Invalid quoted value for key; no ending quotation mark\n");
 					mem_free(key_str);
 					return NULL;
 				}
@@ -244,8 +238,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 			mem_free(key_str);
 		}
 		else {
-			fprintf(stderr, "Invalid key-value line starting with =\n");
-			fflush(stderr);
+			log_printf("Invalid key-value line starting with =\n");
 			return NULL;
 		}
 

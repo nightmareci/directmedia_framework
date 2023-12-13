@@ -485,7 +485,7 @@ public licenses.
 Creative Commons may be contacted at creativecommons.org.
 
 
-The source code of Lua, in src/lua, is provided under this license:
+Lua:
 
 Copyright © 1994–2023 Lua.org, PUC-Rio.
 

@@ -24,7 +24,8 @@
 
 #include "render/sprites.h"
 #include "opengl/opengl.h"
-#include "util/mathematics.h"
+#include "util/log.h"
+#include "util/maths.h"
 #include "util/mem.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,10 +33,13 @@
 #include <float.h>
 #include <assert.h>
 
+// TODO: Switch to using a transform matrix instead of a bunch of scalar math
+// for vertex positions in the shaders.
+
 static const char* const vertex_src = "\
 #version 330\n\
-in vec4 dst;\
 in vec4 src;\
+in vec4 dst;\
 out vec2 f_position;\
 uniform vec2 screen_dimensions;\
 uniform vec2 sheet_dimensions;\
@@ -147,8 +151,7 @@ sprites_object* sprites_create(const size_t initial_size) {
 
 	sprites->shader = opengl_program_create(vertex_src, fragment_src);
 	if (sprites->shader == 0u) {
-		fprintf(stderr, "Error in sprites_create: Failed to create the sprite shader\n");
-		fflush(stderr);
+		log_printf("Error in sprites_create: Failed to create the sprite shader\n");
 		glDeleteBuffers(1, &sprites->buffer);
 		glDeleteVertexArrays(1, &sprites->array);
 		if (sprites->sprites != NULL) {

@@ -26,13 +26,17 @@
 /*
  * Multiple producer threads, single consumer thread concurrent queue. When
  * compiled in debug mode, the dequeue and destroy functions verify the correct
- * thread is using the queue; the first thread to dequeue or destroy becomes the
+ * thread is consuming; the first thread to dequeue or destroy becomes the
  * valid-consumer. Only use this queue type when you need to use it
  * concurrently; it has higher runtime overhead than the single-threaded-only
  * queue type (util/queue.h).
  */
 
-// TODO: Change the implementation to support multiple consumer threads.
+// TODO: Change the implementation to support multiple consumer threads. But do
+// provide an option to select between single-consumer/multiple-consumer, as
+// multiple-consumer has higher overhead than single-consumer. And investigate
+// if single-producer can have lower overhead than multiple-producer; if so,
+// also provide that option.
 
 #include <stdbool.h>
 
