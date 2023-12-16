@@ -90,6 +90,11 @@ add_executable("${EXE}"
 	"${SRC}/src/main/main.c"
 
 
+	"${SRC}/src/input/action.h"
+
+	"${SRC}/src/input/action.c"
+
+
 	"${SRC}/src/render/frames.h"
 	"${SRC}/src/render/layers.h"
 	"${SRC}/src/render/print.h"

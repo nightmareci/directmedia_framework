@@ -23,12 +23,12 @@
  */
 
 #include "game/game.h"
+#include "input/action.h"
 #include "render/render.h"
 #include "main/app.h"
 #include "util/maths.h"
 #include "util/nanotime.h"
 #include "util/mem.h"
-#include "SDL.h"
 #include <inttypes.h>
 
 #define TICK_RATE UINT64_C(60)
@@ -60,21 +60,12 @@ bool game_init(uint64_t* const tick_duration) {
 bool game_update(bool* const quit_now, const uint64_t current_time) {
 	*quit_now = false;
 
-	// TODO: Implement a higher-level input API that doesn't present any device
-	// specifics to the game; e.g., only abstract inputs are made available,
-	// like "menu confirm/deny", not "button A/B" (I think that's conventionally
-	// called "action sets" nowadays). Though do still provide a "physical"
-	// layout, i.e., the API would expose BUTTON_NORTH, BUTTON_EAST,
-	// BUTTON_SOUTH, and BUTTON_WEST, not arbitrary button names, as there's
-	// cases where it's appropriate to use the same physical layout for all
-	// four-button controllers regardless of platform.
-	const Uint8* const keys = SDL_GetKeyboardState(NULL);
-	if (keys[SDL_SCANCODE_ESCAPE]) {
+	if (action_bool_get(ACTION_SET_BASIC_MENU, ACTION_SET_BASIC_MENU_NEGATIVE)) {
 		*quit_now = true;
 		return true;
 	}
 
-	if (keys[SDL_SCANCODE_SPACE]) {
+	if (action_bool_get(ACTION_SET_BASIC_MENU, ACTION_SET_BASIC_MENU_POSITIVE)) {
 		reset_average = true;
 	}
 
@@ -116,7 +107,6 @@ bool game_update(bool* const quit_now, const uint64_t current_time) {
 		)) {
 			return false;
 		}
-		UINT64_MAX;
 	}
 	else {
 		reset_average = false;
