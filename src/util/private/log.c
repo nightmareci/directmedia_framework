@@ -25,7 +25,7 @@
 #include "SDL_thread.h"
 #include "SDL_rwops.h"
 #include "main/app.h"
-#include "util/text.h"
+#include "util/str.h"
 #include "util/mem.h"
 #include "main/main.h"
 #include <stdio.h>

@@ -1,4 +1,3 @@
-#pragma once
 /*
  * MIT License
  * 
@@ -23,21 +22,43 @@
  * SOFTWARE.
  */
 
-#include "render/layers.h"
-#include "data/data_types.h"
-#include <stddef.h>
+#include "data/data.h"
+#include "util/mem.h"
+#include <stdlib.h>
 
-/*
- * Generate graphical text using a bitmap font. Only supports UTF-8 fonts and
- * text.
- */
+static bool create(data_object* const data, SDL_RWops* const rwops) {
+	const Sint64 size = SDL_RWsize(rwops);
+	if (size <= 0) {
+		return false;
+	}
 
-/*
- * Print the text at the requested position.
- */
-bool print_layer_text(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const text);
+	const size_t base_size = offsetof(data_raw_object, bytes) + size;
+	const size_t align = 16u - (base_size % 16u);
+    data_raw_object* const raw = (data_raw_object*)mem_aligned_alloc(16u, base_size + (align % 16u));
+	if (raw == NULL) {
+		return false;
+	}
 
-/*
- * Print the formatted text at the requested position.
- */
-bool print_layer_formatted(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const format, ...);
+	raw->size = size;
+
+	const size_t read = SDL_RWread(rwops, raw->bytes, 1u, size);
+	if (read == 0u || read != size) {
+		mem_aligned_free(raw);
+		return false;
+	}
+
+	SDL_RWclose(rwops);
+
+	data->raw = raw;
+	return true;
+}
+
+static bool destroy(data_object* const data) {
+	mem_aligned_free((void*)data->raw);
+	mem_free((void*)data->id.filename);
+	mem_free((void*)data);
+
+	return true;
+}
+
+DATA_TYPE_MANAGER_DEFINITION(data_type_manager_raw, create, destroy);

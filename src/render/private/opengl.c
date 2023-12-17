@@ -22,7 +22,9 @@
  * SOFTWARE.
  */
 
-#include "opengl/opengl.h"
+#include "render/private/opengl.h"
+#include "main/private/app_private.h"
+#include "main/main.h"
 #include "util/log.h"
 #include "util/mem.h"
 #include "SDL.h"
@@ -42,6 +44,80 @@ static void* get_proc_address(const char* name) {
 
 bool opengl_init() {
 	return !!gladLoadGLLoader(get_proc_address);
+}
+
+opengl_context_object opengl_context_create() {
+	assert(SDL_ThreadID() == main_thread_id_get());
+
+	SDL_Window* const current_window = app_window_get();
+	assert(current_window != NULL);
+
+	int context_major_version, context_minor_version, context_profile_mask;
+
+	SDL_GLContext glcontext;
+	if ((glcontext = SDL_GL_CreateContext(current_window)) == NULL) {
+		log_printf("Error: %s\n", SDL_GetError());
+		return NULL;
+	}
+	else if (
+		SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &context_major_version) < 0 ||
+		SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &context_minor_version) < 0 ||
+		SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, &context_profile_mask) < 0
+	) {
+		log_printf("Error: %s\n", SDL_GetError());
+		SDL_GL_MakeCurrent(current_window, NULL);
+		SDL_GL_DeleteContext(glcontext);
+		return NULL;
+	}
+	else if (
+		context_major_version < 3 ||
+		(context_major_version == 3 && context_minor_version < 3) ||
+		context_profile_mask != SDL_GL_CONTEXT_PROFILE_CORE
+	) {
+		log_printf("Error: OpenGL version is %d.%d %s, OpenGL 3.3 Core or higher is required\n",
+			context_major_version, context_minor_version,
+			context_profile_mask == SDL_GL_CONTEXT_PROFILE_CORE ? "Core" :
+			context_profile_mask == SDL_GL_CONTEXT_PROFILE_COMPATIBILITY ? "Compatibility" :
+			context_profile_mask == SDL_GL_CONTEXT_PROFILE_ES ? "ES" :
+			"[UNKNOWN PROFILE TYPE]"
+		);
+		SDL_GL_MakeCurrent(current_window, NULL);
+		SDL_GL_DeleteContext(glcontext);
+		return NULL;
+	}
+	else if (!opengl_init()) {
+		log_printf("Error: Failed to initialize OpenGL\n");
+		SDL_GL_MakeCurrent(current_window, NULL);
+		SDL_GL_DeleteContext(glcontext);
+		return NULL;
+	}
+	else if (SDL_GL_SetSwapInterval(0) < 0) {
+		log_printf("Error: %s\n", SDL_GetError());
+		SDL_GL_MakeCurrent(current_window, NULL);
+		SDL_GL_DeleteContext(glcontext);
+		return NULL;
+	}
+	SDL_GL_MakeCurrent(current_window, NULL);
+
+	return glcontext;
+}
+
+void opengl_context_destroy(opengl_context_object* const context) {
+	assert(SDL_ThreadID() == main_thread_id_get());
+	assert(context != NULL);
+
+	SDL_GL_DeleteContext(context);
+}
+
+bool opengl_context_make_current(opengl_context_object* const context) {
+	SDL_Window* const window = app_window_get();
+
+	if (SDL_GL_MakeCurrent(window, context) < 0) {
+		log_printf("Error making an OpenGL context current in render thread\n");
+		return false;
+	}
+
+	return true;
 }
 
 GLuint opengl_shader_create(const GLenum type, const GLchar* const src) {

@@ -24,7 +24,7 @@
 
 #include "util/ini.h"
 #include "util/dict.h"
-#include "util/text.h"
+#include "util/str.h"
 #include "util/log.h"
 #include "util/mem.h"
 #include <ctype.h>
@@ -117,7 +117,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 			section_len = end - start + 1u;
 			section_str = (char*)mem_malloc(len);
 			memcpy(section_str, line + start, section_len);
-			strtoupper(section_str, section_len);
+			strntoupper(section_str, section_len);
 
 			dict_object* const section = dict_create(1u);
 			if (section == NULL) {
@@ -159,7 +159,7 @@ ini_object* ini_create(const char* const data, const size_t size) {
 
 			char* const key_str = (char*)mem_malloc(end_key + 1u);
 			memcpy(key_str, line, end_key + 1u);
-			strtoupper(key_str, end_key + 1u);
+			strntoupper(key_str, end_key + 1u);
 
 			while (start_value < len && (line[start_value] == ' ' || line[start_value] == '\t')) {
 				start_value++;
@@ -315,7 +315,7 @@ const char* ini_get(ini_object* const ini, const char* const section, const char
 		abort();
 	}
 	memcpy(section_upper, section, strlen(section));
-	strtoupper(section_upper, strlen(section));
+	strntoupper(section_upper, strlen(section));
 
 	char* const key_upper = (char*)mem_malloc(strlen(key));
 	if (key_upper == NULL) {
@@ -323,7 +323,7 @@ const char* ini_get(ini_object* const ini, const char* const section, const char
 		abort();
 	}
 	memcpy(key_upper, key, strlen(key));
-	strtoupper(key_upper, strlen(key));
+	strntoupper(key_upper, strlen(key));
 
 	dict_object* section_dict = NULL;
 	char* value_str = NULL;
@@ -356,7 +356,7 @@ bool ini_set(ini_object* const ini, const char* const section, const char* const
 		return false;
 	}
 	memcpy(section_upper, section, strlen(section));
-	strtoupper(section_upper, strlen(section));
+	strntoupper(section_upper, strlen(section));
 
 	char* const key_upper = (char*)mem_malloc(strlen(key));
 	if (key_upper == NULL) {
@@ -364,7 +364,7 @@ bool ini_set(ini_object* const ini, const char* const section, const char* const
 		return false;
 	}
 	memcpy(key_upper, key, strlen(key));
-	strtoupper(key_upper, strlen(key));
+	strntoupper(key_upper, strlen(key));
 
 	dict_object* section_dict = NULL;
 	if (!dict_get((dict_object*)ini, section_upper, strlen(section), (void**)&section_dict, NULL)) {

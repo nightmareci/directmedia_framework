@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "util/text.h"
+#include "util/str.h"
 #include "util/mem.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,8 +81,8 @@ char* alloc_vsprintf(const char* const fmt, va_list args) {
 	return printout;
 }
 
-#ifndef _WIN32
-int strcmpi(const char* lhs, const char* rhs) {
+#ifndef _MSC_VER
+int stricmp(const char* lhs, const char* rhs) {
 	assert(lhs != NULL);
 	assert(rhs != NULL);
 
@@ -101,7 +101,7 @@ int strcmpi(const char* lhs, const char* rhs) {
 }
 #endif
 
-void strtoupper(char* const str, const size_t size) {
+void strntoupper(char* const str, const size_t size) {
 	assert(str != NULL);
 
 	for (size_t i = 0u; i < size; i++) {
@@ -109,7 +109,7 @@ void strtoupper(char* const str, const size_t size) {
 	}
 }
 
-void strtolower(char* const str, const size_t size) {
+void strntolower(char* const str, const size_t size) {
 	assert(str != NULL);
 
 	for (size_t i = 0u; i < size; i++) {

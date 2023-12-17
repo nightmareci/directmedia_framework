@@ -1,19 +1,18 @@
-#pragma once
 /*
  * MIT License
- * 
+ *
  * Copyright (c) 2023 Brandon McGriff <nightmareci@gmail.com>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -23,25 +22,29 @@
  * SOFTWARE.
  */
 
-#include "data/private/data_type_manager.h"
-#include <stdint.h>
+#include "data/data.h"
+#include "util/mem.h"
 
-/*
- * Raw data.
- */
-typedef struct data_raw_object {
-	/*
-	 * The size of the raw data chunk.
-	 */
-	size_t size;
+static bool create(data_object* const data, SDL_RWops* const rwops) {
+	Mix_Chunk* const sound = Mix_LoadWAV_RW(rwops, 1);
+	if (sound == NULL) {
+		return false;
+	}
 
-	/*
-	 * The raw data chunk. This sort of declaration results in the
-	 * data field being aligned correctly for both pointers and 128-bit
-	 * scalars, which makes the array correct for virtually all platforms
-	 * and data types.
-	 */
-	_Alignas(16) uint8_t bytes[1];
-} data_raw_object;
+	data->sound = sound;
+	return true;
+}
 
-extern const data_type_manager data_type_manager_raw;
+static bool destroy(data_object* const data) {
+	Mix_FreeChunk(data->sound);
+	mem_free((void*)data->id.filename);
+	mem_free((void*)data);
+
+	return true;
+}
+
+
+static bool create(data_object* const data, SDL_RWops* const rwops);
+static bool destroy(data_object* const data);
+
+DATA_TYPE_MANAGER_DEFINITION(data_type_manager_sound, create, destroy);

@@ -24,14 +24,9 @@
  */
 
 #include "render/render_types.h"
-#include "render/frames.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-
-bool render_init(frames_object* const frames);
-
-void render_deinit();
 
 bool render_start(const float width, const float height);
 
@@ -41,6 +36,6 @@ bool render_clear(const float red, const float green, const float blue, const fl
 
 bool render_sprites(const char* const sheet_filename, const size_t layer_index, const size_t num_added, const sprite_type* const added_sprites);
 
-bool render_text(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const text);
+bool render_string(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const string);
 
 bool render_printf(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const format, ...);

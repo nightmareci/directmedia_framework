@@ -33,33 +33,6 @@
  */
 
 /*
- * TODO: Implement some means for logging when the current thread's log filename
- * hasn't been set. Not having that feature means functions called before
- * logging has been initialized can't log errors.
- */
-
-/*
- * Initialize logging support for the whole application. Must be called in the
- * main thread, before any of the other functions are called.
- *
- * If all_output isn't NULL, all logged text is written to the named file,
- * (hopefully) eventually; if all_output is NULL, output will only go to the
- * individual threads' log files, as specified above. The exact string "stdout"
- * is special cased to output to stdout, not into a file in the filesystem.
- * Because concurrency has a bit of "unpredictability", the ordering of output
- * might be out of order with respect to the real time the threads have
- * submitted logging operations, but at the very least each log operation will
- * fully complete before the next; log operations won't interrupt each other.
- */
-bool log_init(const char* const all_output);
-
-/*
- * Set the log filename used for the current thread. Returns true if setting was
- * successful, otherwise false in the case of errors.
- */
-bool log_filename_set(const char* const filename);
-
-/*
  * Simply log a text string, verbatim. No formatting or interpretation of the
  * text is done. It is erroneous to request log operations before setting the
  * filename for the current thread.

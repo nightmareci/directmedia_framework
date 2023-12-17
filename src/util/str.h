@@ -40,23 +40,29 @@ char* alloc_sprintf(const char* const fmt, ...);
  */
 char* alloc_vsprintf(const char* const fmt, va_list args);
 
-#ifndef _WIN32
+#ifdef _MSC_VER
 /*
  * Compare strings case insensitively. The return value is of the same
  * semantics as of standard C strcmp.
  */
-int strcmpi(const char* lhs, const char* rhs);
+#define stricmp _stricmp
+#else
+/*
+ * Compare strings case insensitively. The return value is of the same
+ * semantics as of standard C strcmp.
+ */
+int stricmp(const char* lhs, const char* rhs);
 #endif
 
 /*
- * Convert English alphabetic characters to uppercase.
+ * Convert English alphabetic characters to uppercase, at most "size" characters.
  */
-void strtoupper(char* const str, const size_t size);
+void strntoupper(char* const str, const size_t size);
 
 /*
- * Convert English alphabetic characters to lowercase.
+ * Convert English alphabetic characters to lowercase, at most "size" characters.
  */
-void strtolower(char* const str, const size_t size);
+void strntolower(char* const str, const size_t size);
 
 /*
  * Get the Unicode codepoint corresponding to the first character in the UTF-8

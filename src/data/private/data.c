@@ -23,9 +23,9 @@
  */
 
 #include "data/data.h"
-#include "data/data_type_manager.h"
+#include "data/private/data_type_manager.h"
 #include "util/dict.h"
-#include "util/text.h"
+#include "util/str.h"
 #include "util/mem.h"
 #include "SDL.h"
 #include "SDL_mixer.h"
@@ -192,14 +192,6 @@ const data_object* data_load(data_cache_object* const cache, const data_type typ
 		mem_free((char*)data->id.filename);
 		mem_free(data);
 		SDL_RWclose(rwops);
-		if (status != NULL) {
-			*status = DATA_LOAD_STATUS_ERROR;
-		}
-		return NULL;
-	}
-
-	if (SDL_RWclose(rwops) < 0) {
-		type_managers[type]->destroy(data);
 		if (status != NULL) {
 			*status = DATA_LOAD_STATUS_ERROR;
 		}

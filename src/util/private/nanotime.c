@@ -22,29 +22,5 @@
  * SOFTWARE.
  */
 
-#include "data/data.h"
-#include "util/mem.h"
-
-static bool create(data_object* const data, SDL_RWops* const rwops) {
-	Mix_Chunk* const sound = Mix_LoadWAV_RW(rwops, 0);
-	if (sound == NULL) {
-		return false;
-	}
-
-	data->sound = sound;
-	return true;
-}
-
-static bool destroy(data_object* const data) {
-	Mix_FreeChunk(data->sound);
-	mem_free((void*)data->id.filename);
-	mem_free((void*)data);
-
-	return true;
-}
-
-
-static bool create(data_object* const data, SDL_RWops* const rwops);
-static bool destroy(data_object* const data);
-
-DATA_TYPE_MANAGER_DEFINITION(data_type_manager_sound, create, destroy);
+#define NANOTIME_IMPLEMENTATION
+#include "util/nanotime.h"

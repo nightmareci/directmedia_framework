@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "util/conqueue.h"
+#include "util/private/conqueue.h"
 #include "util/mem.h"
 #include "SDL_atomic.h"
 #include "SDL_thread.h"

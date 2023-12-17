@@ -67,7 +67,7 @@ message(STATUS "Build target: ${BUILD_TARGET}")
 
 option(USE_VENDOR_LIBRARIES "Enable building and usage of the vendor-provided libraries instead of system-installed libraries." FALSE)
 
-configure_file("${SRC}/src/main/app_const.c.in" "${BIN}/src/main/app_const.c" @ONLY)
+configure_file("${SRC}/src/main/private/app_const.c.in" "${BIN}/src/main/private/app_const.c" @ONLY)
 
 # TODO: Refactor so headers are precompiled.
 add_executable("${EXE}"
@@ -84,32 +84,56 @@ add_executable("${EXE}"
 
 
 	"${SRC}/src/main/app.h"
+	"${SRC}/src/main/main.h"
 
-	"${SRC}/src/main/app.c"
-	"${BIN}/src/main/app_const.c"
-	"${SRC}/src/main/main.c"
+	"${SRC}/src/main/private/app_private.h"
+
+	"${SRC}/src/main/private/app.c"
+	"${BIN}/src/main/private/app_const.c"
+	"${SRC}/src/main/private/main.c"
 
 
 	"${SRC}/src/input/action.h"
 
-	"${SRC}/src/input/action.c"
+	"${SRC}/src/input/private/action.c"
 
 
-	"${SRC}/src/render/frames.h"
-	"${SRC}/src/render/layers.h"
-	"${SRC}/src/render/print.h"
 	"${SRC}/src/render/render.h"
 	"${SRC}/src/render/render_types.h"
-	"${SRC}/src/render/sprites.h"
 
-	"${SRC}/src/render/frames.c"
-	"${SRC}/src/render/layers.c"
-	"${SRC}/src/render/print.c"
-	"${SRC}/src/render/render.c"
-	"${SRC}/src/render/sprites.c"
+	# OpenGL-using sources should only ever include opengl.h; the
+	# other sources are just internal implementation details to how OpenGL
+	# is made available to the code. Different platforms could use
+	# different internal means to provide OpenGL, with the opengl.h header
+	# providing a standard way to access OpenGL on all platforms.
+
+	"${SRC}/src/render/private/glad.h"
+	"${SRC}/src/render/private/khrplatform.h"
+	"${SRC}/src/render/private/opengl.h"
+
+	"${SRC}/src/render/private/glad.c"
+	"${SRC}/src/render/private/opengl.c"
+
+	"${SRC}/src/render/private/frames.h"
+	"${SRC}/src/render/private/layers.h"
+	"${SRC}/src/render/private/print.h"
+	"${SRC}/src/render/private/render_private.h"
+	"${SRC}/src/render/private/sprites.h"
+
+	"${SRC}/src/render/private/frames.c"
+	"${SRC}/src/render/private/layers.c"
+	"${SRC}/src/render/private/print.c"
+	"${SRC}/src/render/private/render.c"
+	"${SRC}/src/render/private/sprites.c"
 
 
-	"${SRC}/src/util/conqueue.h"
+	"${SRC}/src/audio/audio.h"
+
+	"${SRC}/src/audio/private/audio_private.h"
+
+	"${SRC}/src/audio/private/audio.c"
+
+
 	"${SRC}/src/util/dict.h"
 	"${SRC}/src/util/font.h"
 	"${SRC}/src/util/ini.h"
@@ -118,18 +142,20 @@ add_executable("${EXE}"
 	"${SRC}/src/util/mem.h"
 	"${SRC}/src/util/nanotime.h"
 	"${SRC}/src/util/queue.h"
-	"${SRC}/src/util/text.h"
+	"${SRC}/src/util/str.h"
 
-	"${SRC}/src/util/conqueue.c"
-	"${SRC}/src/util/dict.c"
-	"${SRC}/src/util/font.c"
-	"${SRC}/src/util/ini.c"
-	"${SRC}/src/util/log.c"
-	"${SRC}/src/util/maths.c"
-	"${SRC}/src/util/mem.c"
-	"${SRC}/src/util/nanotime.c"
-	"${SRC}/src/util/queue.c"
-	"${SRC}/src/util/text.c"
+	"${SRC}/src/util/private/conqueue.h"
+
+	"${SRC}/src/util/private/conqueue.c"
+	"${SRC}/src/util/private/dict.c"
+	"${SRC}/src/util/private/font.c"
+	"${SRC}/src/util/private/ini.c"
+	"${SRC}/src/util/private/log.c"
+	"${SRC}/src/util/private/maths.c"
+	"${SRC}/src/util/private/mem.c"
+	"${SRC}/src/util/private/nanotime.c"
+	"${SRC}/src/util/private/queue.c"
+	"${SRC}/src/util/private/str.c"
 
 
 	"${SRC}/src/data/data.h"
@@ -139,29 +165,15 @@ add_executable("${EXE}"
 	"${SRC}/src/data/data_sound.h"
 	"${SRC}/src/data/data_texture.h"
 	"${SRC}/src/data/data_types.h"
-	"${SRC}/src/data/data_type_manager.h"
 
-	"${SRC}/src/data/data.c"
-	"${SRC}/src/data/data_font.c"
-	"${SRC}/src/data/data_music.c"
-	"${SRC}/src/data/data_raw.c"
-	"${SRC}/src/data/data_sound.c"
-	"${SRC}/src/data/data_texture.c"
+	"${SRC}/src/data/private/data_type_manager.h"
 
-
-	# Non-opengl-directory sources should only ever include opengl.h; the
-	# other sources are just internal implementation details to how OpenGL
-	# is made available to the code. Different platforms could use
-	# different internal means to provide OpenGL, with the opengl.h header
-	# providing a standard way to access OpenGL on all platforms.
-
-
-	"${SRC}/src/opengl/glad.h"
-	"${SRC}/src/opengl/khrplatform.h"
-	"${SRC}/src/opengl/opengl.h"
-
-	"${SRC}/src/opengl/glad.c"
-	"${SRC}/src/opengl/opengl.c"
+	"${SRC}/src/data/private/data.c"
+	"${SRC}/src/data/private/data_font.c"
+	"${SRC}/src/data/private/data_music.c"
+	"${SRC}/src/data/private/data_raw.c"
+	"${SRC}/src/data/private/data_sound.c"
+	"${SRC}/src/data/private/data_texture.c"
 
 
 	# A specific version of Lua as a Git submodule in the repository is

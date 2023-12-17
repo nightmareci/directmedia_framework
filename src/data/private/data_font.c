@@ -23,8 +23,8 @@
  */
 
 #include "data/data.h"
-#include "opengl/opengl.h"
-#include "util/text.h"
+#include "render/private/opengl.h"
+#include "util/str.h"
 #include "util/mem.h"
 
 static bool create(data_object* const data, SDL_RWops* const rwops) {
@@ -103,6 +103,8 @@ static bool create(data_object* const data, SDL_RWops* const rwops) {
 		font->textures[page] = page_data;
 	}
 	mem_free(directory);
+
+	SDL_RWclose(rwops);
 
 	data->font = font;
 	return true;

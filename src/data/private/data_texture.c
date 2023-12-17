@@ -68,6 +68,8 @@ static bool create(data_object* const data, SDL_RWops* const rwops) {
 		return false;
 	}
 
+	SDL_RWclose(rwops);
+
 	data->texture->name = name;
 	data->texture->width = surface->w;
 	data->texture->height = surface->h;

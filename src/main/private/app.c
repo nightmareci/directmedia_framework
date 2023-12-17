@@ -22,14 +22,16 @@
  * SOFTWARE.
  */
 
-#include "main/app.h"
+#include "main/private/app_private.h"
+#include "audio/private/audio_private.h"
+#include "render/private/render_private.h"
+#include "render/private/opengl.h"
+#include "util/private/log_private.h"
+#include "util/private/mem_private.h"
 #include "main/main.h"
-#include "opengl/opengl.h"
-#include "util/text.h"
+#include "util/str.h"
 #include "util/log.h"
 #include "util/nanotime.h"
-#include "util/mem.h"
-#include "render/render.h"
 #include "game/game.h"
 #include "lua/lauxlib.h"
 #include "SDL.h"
@@ -99,17 +101,17 @@ static SDL_atomic_t all_inited = { 0 };
  * of the context as follows:
  *
  * 1. Ensure the render thread waits for the main thread to wake it up
- * initially, before attempting to use the glcontext at all.
+ * initially, before attempting to use the context at all.
  *
- * 2. Create the glcontext in the main thread and set no-glcontext as current
+ * 2. Create the context in the main thread and set no-context as current
  * in the main thread.
  *
- * 3. Release-set the shared glcontext pointer to the now-ready-to-pass-off
- * glcontext.
+ * 3. Release-set the shared context pointer to the now-ready-to-pass-off
+ * context.
  *
  * 3. Wake the waiting render thread.
  *
- * 4. Get-acquire the shared glcontext pointer in the render thread and make it
+ * 4. Get-acquire the shared context pointer in the render thread and make it
  * current in the render thread, while making no use of it in the main thread
  * while it's in use by the render thread.
  *
@@ -123,20 +125,20 @@ static SDL_atomic_t all_inited = { 0 };
  * release-set of quit_now before the post, to guarantee the render thread's
  * get-acquire of quit_now indicates it's time to quit.
  *
- * 7. The render thread does a release-set of the glcontext pointer to the same
+ * 7. The render thread does a release-set of the context pointer to the same
  * value it already was, for later sync-to-main-thread via get-acquire of the
  * pointer.
  *
  * 8. Now, the main thread does the wait-for-render-thread-exit.
  *
- * 9. The main thread does a get-acquire of the shared glcontext pointer, to
+ * 9. The main thread does a get-acquire of the shared context pointer, to
  * guarantee the render thread's OpenGL operations have completed before
  * executing beyond its get-acquire.
  *
- * 10. The main thread now destroys the shared glcontext, as now it's
+ * 10. The main thread now destroys the shared context, as now it's
  * guaranteed to no longer be in use by the render thread.
  */
-static SDL_GLContext main_thread_glcontext = NULL;
+static opengl_context_object main_thread_opengl_context = NULL;
 
 static bool paths_init(const int argc, char** const argv) {
 	bool portable_app = false;
@@ -302,7 +304,7 @@ static bool libs_init() {
 	render_height = 480;
 	SDL_AtomicUnlock(&render_size_lock);
 
-	if (Mix_Init(MIX_INIT_OGG | MIX_INIT_MOD) != (MIX_INIT_OGG | MIX_INIT_MOD)) {
+	if (Mix_Init(MIX_INIT_OGG | MIX_INIT_MP3 | MIX_INIT_MOD) != (MIX_INIT_OGG | MIX_INIT_MP3 | MIX_INIT_MOD)) {
 		log_printf("Error: %s\n", Mix_GetError());
 		app_deinit();
 		return false;
@@ -430,16 +432,16 @@ static int SDLCALL render_thread_func(void* data) {
 		return EXIT_FAILURE;
 	}
 
-	SDL_GLContext glcontext = SDL_AtomicGetPtr((void**)&main_thread_glcontext);
+	opengl_context_object context = SDL_AtomicGetPtr((void**)&main_thread_opengl_context);
 	SDL_MemoryBarrierAcquire();
-	if (glcontext == NULL) {
-		log_printf("Error getting glcontext in render thread\n");
+	if (context == NULL) {
+		log_printf("Error getting OpenGL context in render thread\n");
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_init_game);
 		return EXIT_FAILURE;
 	}
 
-	if (SDL_GL_MakeCurrent(window, glcontext) < 0) {
+	if (!opengl_context_make_current(context)) {
 		log_printf("Error making an OpenGL context current in render thread\n");
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_init_game);
@@ -540,9 +542,9 @@ static int SDLCALL render_thread_func(void* data) {
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&render_frames, NULL);
 	render_deinit();
-	SDL_GL_MakeCurrent(window, NULL);
+	opengl_context_make_current(NULL);
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSetPtr((void**)&main_thread_glcontext, glcontext);
+	SDL_AtomicSetPtr((void**)&main_thread_opengl_context, context);
 	if (exit_code == EXIT_SUCCESS) {
 		log_printf("Successfully shut down render thread\n");
 	}
@@ -559,12 +561,12 @@ static bool render_thread_init() {
 		return false;
 	}
 
-	SDL_GLContext glcontext = app_glcontext_create();
-	if (glcontext == NULL) {
+	opengl_context_object context = opengl_context_create();
+	if (context == NULL) {
 		return false;
 	}
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSetPtr((void**)&main_thread_glcontext, glcontext);
+	SDL_AtomicSetPtr((void**)&main_thread_opengl_context, context);
 
 	SEM_POST(sem_render_start);
 
@@ -605,11 +607,11 @@ static void render_thread_deinit() {
 		}
 	}
 
-	SDL_GLContext const glcontext = SDL_AtomicGetPtr((void**)&main_thread_glcontext);
+	opengl_context_object const context = SDL_AtomicGetPtr((void**)&main_thread_opengl_context);
 	SDL_MemoryBarrierAcquire();
-	if (glcontext != NULL) app_glcontext_destroy(glcontext);
+	if (context != NULL) opengl_context_destroy(context);
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSetPtr((void**)&main_thread_glcontext, NULL);
+	SDL_AtomicSetPtr((void**)&main_thread_opengl_context, NULL);
 
 	render_thread_inited = false;
 }
@@ -691,6 +693,11 @@ bool app_init(const int argc, char** const argv) {
 		goto fail;
 	}
 
+	if (!audio_init()) {
+		log_printf("Failed initializing audio\n");
+		goto fail;
+	}
+
 	if (!render_thread_init()) {
 		log_printf("Failed initializing render thread\n");
 		goto fail;
@@ -721,6 +728,8 @@ void app_deinit() {
 	render_thread_deinit();
 
 	sems_deinit();
+
+	audio_deinit();
 
 	paths_deinit();
 
@@ -759,69 +768,6 @@ double app_render_frame_rate_get() {
 	const double frame_rate = render_frame_rate;
 	SDL_AtomicUnlock(&render_frame_rate_lock);
 	return frame_rate;
-}
-
-SDL_GLContext app_glcontext_create() {
-	assert(SDL_ThreadID() == main_thread_id_get());
-
-	SDL_Window* const current_window = app_window_get();
-	assert(current_window != NULL);
-
-	int context_major_version, context_minor_version, context_profile_mask;
-
-	SDL_GLContext glcontext;
-	if ((glcontext = SDL_GL_CreateContext(current_window)) == NULL) {
-		log_printf("Error: %s\n", SDL_GetError());
-		return NULL;
-	}
-	else if (
-		SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &context_major_version) < 0 ||
-		SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &context_minor_version) < 0 ||
-		SDL_GL_GetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, &context_profile_mask) < 0
-	) {
-		log_printf("Error: %s\n", SDL_GetError());
-		SDL_GL_MakeCurrent(current_window, NULL);
-		SDL_GL_DeleteContext(glcontext);
-		return NULL;
-	}
-	else if (
-		context_major_version < 3 ||
-		(context_major_version == 3 && context_minor_version < 3) ||
-		context_profile_mask != SDL_GL_CONTEXT_PROFILE_CORE
-	) {
-		log_printf("Error: OpenGL version is %d.%d %s, OpenGL 3.3 Core or higher is required\n",
-			context_major_version, context_minor_version,
-			context_profile_mask == SDL_GL_CONTEXT_PROFILE_CORE ? "Core" :
-			context_profile_mask == SDL_GL_CONTEXT_PROFILE_COMPATIBILITY ? "Compatibility" :
-			context_profile_mask == SDL_GL_CONTEXT_PROFILE_ES ? "ES" :
-			"[UNKNOWN PROFILE TYPE]"
-		);
-		SDL_GL_MakeCurrent(current_window, NULL);
-		SDL_GL_DeleteContext(glcontext);
-		return NULL;
-	}
-	else if (!opengl_init()) {
-		log_printf("Error: Failed to initialize OpenGL\n");
-		SDL_GL_MakeCurrent(current_window, NULL);
-		SDL_GL_DeleteContext(glcontext);
-		return NULL;
-	}
-	else if (SDL_GL_SetSwapInterval(0) < 0) {
-		log_printf("Error: %s\n", SDL_GetError());
-		SDL_GL_MakeCurrent(current_window, NULL);
-		SDL_GL_DeleteContext(glcontext);
-		return NULL;
-	}
-	SDL_GL_MakeCurrent(current_window, NULL);
-
-	return glcontext;
-}
-
-void app_glcontext_destroy(SDL_GLContext const glcontext) {
-	assert(SDL_ThreadID() == main_thread_id_get());
-	assert(glcontext != NULL);
-
-	SDL_GL_DeleteContext(glcontext);
 }
 
 const char* app_resource_path_get() {

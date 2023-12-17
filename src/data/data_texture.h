@@ -23,8 +23,8 @@
  * SOFTWARE.
  */
 
-#include "data/data_type_manager.h"
-#include "opengl/opengl.h"
+#include "data/private/data_type_manager.h"
+#include "render/private/opengl.h"
 
 typedef struct data_texture_object {
 	GLuint name;

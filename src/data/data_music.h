@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "data/data_type_manager.h"
+#include "data/private/data_type_manager.h"
 #include "SDL_mixer.h"
 
 typedef Mix_Music data_music_object;

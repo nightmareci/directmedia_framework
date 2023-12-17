@@ -22,15 +22,15 @@
  * SOFTWARE.
  */
 
-#include "render/render.h"
-#include "render/sprites.h"
-#include "render/layers.h"
-#include "render/print.h"
+#include "render/private/render_private.h"
+#include "render/private/sprites.h"
+#include "render/private/layers.h"
+#include "render/private/print.h"
+#include "render/private/opengl.h"
 #include "main/app.h"
 #include "data/data.h"
-#include "opengl/opengl.h"
 #include "util/log.h"
-#include "util/text.h"
+#include "util/str.h"
 #include "util/mem.h"
 #include <math.h>
 #include <stdarg.h>
@@ -270,7 +270,7 @@ typedef struct render_print_object {
 	size_t layer_index;
 	float x;
 	float y;
-	char* text;
+	char* string;
 } render_print_object;
 
 static bool render_print_update_func(void* const state) {
@@ -279,13 +279,13 @@ static bool render_print_update_func(void* const state) {
 	if (font == NULL) {
 		return false;
 	}
-	const bool success = print_layer_text(font->font, layers, p->layer_index, p->x, p->y, p->text);
-	mem_free((char*)p->text);
+	const bool success = print_layer_string(font->font, layers, p->layer_index, p->x, p->y, p->string);
+	mem_free((char*)p->string);
 	mem_free(p);
 	return success;
 }
 
-bool render_text(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const text) {
+bool render_string(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const string) {
 	render_print_object* const p = mem_malloc(sizeof(render_print_object));
 	if (p == NULL) {
 		return false;
@@ -295,13 +295,13 @@ bool render_text(const char* const font_filename, const size_t layer_index, cons
 	p->layer_index = layer_index;
 	p->x = x;
 	p->y = y;
-	const size_t size = strlen(text) + 1u;
-	p->text = mem_malloc(size);
-	if (p->text == NULL) {
+	const size_t size = strlen(string) + 1u;
+	p->string = mem_malloc(size);
+	if (p->string == NULL) {
 		mem_free(p);
 		return false;
 	}
-	memcpy(p->text, text, size);
+	memcpy(p->string, string, size);
 
 	static const command_funcs funcs = {
 		.update = render_print_update_func,
@@ -309,7 +309,7 @@ bool render_text(const char* const font_filename, const size_t layer_index, cons
 		.destroy = NULL
 	};
 	if (!frames_enqueue_command(render_frames, &funcs, p)) {
-		mem_free((char*)p->text);
+		mem_free((char*)p->string);
 		mem_free(p);
 		return false;
 	}
@@ -329,9 +329,9 @@ bool render_printf(const char* const font_filename, const size_t layer_index, co
 	p->y = y;
 	va_list args;
 	va_start(args, format);
-	p->text = alloc_vsprintf(format, args);
+	p->string = alloc_vsprintf(format, args);
 	va_end(args);
-	if (p->text == NULL) {
+	if (p->string == NULL) {
 		mem_free(p);
 		return false;
 	}
@@ -342,7 +342,7 @@ bool render_printf(const char* const font_filename, const size_t layer_index, co
 		.destroy = NULL
 	};
 	if (!frames_enqueue_command(render_frames, &funcs, p)) {
-		mem_free((char*)p->text);
+		mem_free((char*)p->string);
 		mem_free(p);
 		return false;
 	}

@@ -22,13 +22,13 @@
  * SOFTWARE.
  */
 
-#include "render/frames.h"
+#include "render/private/frames.h"
+#include "render/private/opengl.h"
+#include "main/private/app_private.h"
+#include "util/private/conqueue.h"
 #include "util/log.h"
-#include "util/conqueue.h"
 #include "util/queue.h"
 #include "util/mem.h"
-#include "main/app.h"
-#include "opengl/opengl.h"
 #include "SDL.h"
 #include <stdlib.h>
 #include <assert.h>

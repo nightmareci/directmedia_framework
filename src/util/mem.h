@@ -58,23 +58,6 @@ typedef enum bytes_per_type {
 	BYTES_PER_MAX = SIZE_MAX
 } bytes_per_type;
 
-/*
- * TODO: Change from using a compile-time option for enabling/disabling memory
- * debugging to a runtime option, that must be passed in before startup. That
- * way, the prebuilt release builds only capable of running Lua script code can
- * have memory debugging enabled by users, without having to rebuild with memory
- * debugging enabled. And use separate functions for no-debugging and debugging,
- * so that the unnecessary overhead of conditional checks aren't necessary when
- * debugging is off; just use function pointers to choose the debugging mode.
- */
-
-/*
- * Initializes the memory subsystem. Call first thing at startup, before any
- * dynamic memory allocations, in the main thread, before any threads have been
- * created.
- */
-bool mem_init();
-
 #ifdef MEM_DEBUG
 void* SDLCALL mem_malloc(size_t size);
 void* SDLCALL mem_calloc(size_t nmemb, size_t size);
@@ -165,11 +148,6 @@ size_t mem_total();
  * could reasonably allocate without crashing nor disrupting other processes.
  */
 size_t mem_left();
-
-/*
- * Allocation function suitable for passing to lua_newstate().
- */
-void* mem_lua_alloc(void* userdata, void* mem, size_t old_size, size_t new_size);
 
 /*
  * TODO: Implement and use a game-development-optimized bump memory allocator,

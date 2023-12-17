@@ -26,8 +26,8 @@
 // all on the sprites library? Then it can use different techniques, like
 // indexed rendering of an out-of-order sprites array.
 
-#include "render/layers.h"
-#include "render/sprites.h"
+#include "render/private/layers.h"
+#include "render/private/sprites.h"
 #include "util/mem.h"
 #include "SDL_video.h"
 #include <assert.h>

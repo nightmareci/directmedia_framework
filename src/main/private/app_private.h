@@ -23,33 +23,33 @@
  * SOFTWARE.
  */
 
-#include "opengl/glad.h"
-#include <stdbool.h>
+#include "main/app.h"
 
 /*
- * Does necessary preparation before OpenGL can be used. Must be called before
- * any OpenGL functions (opengl_*, gl*) are called. Returns true if loading was
- * successful, otherwise false.
+ * Initialize the application. Must only be called in the main thread.
  */
-bool opengl_init();
+bool app_init(const int argc, char** const argv);
 
 /*
- * Create an OpenGL shader object of the requested type. Returns 0 if creation
- * failed.
+ * Deinitialize the application. Must only be called in the main thread.
  */
-GLuint opengl_shader_create(const GLenum type, const GLchar* const src);
+void app_deinit();
 
 /*
- * Create an OpenGL shading program object with only vertex and fragment
- * shaders. Returns 0 if creation failed.
+ * Does one step of updating the application's main thread tasks (reading input
+ * and updating the game).
+ *
+ * This function should be called in a loop, continuing so long as this function
+ * returns QUIT_NOT, breaking out when this function returns QUIT_SUCCESS or
+ * QUIT_FAILURE, returning EXIT_SUCCESS or EXIT_FAILURE to the operating system
+ * corresponding to the returned quit status.
+ *
+ * This function must only be called in the main thread, between app_init and
+ * app_deinit.
  */
-GLuint opengl_program_create(const GLchar* const vertex_src, const GLchar* const fragment_src);
+quit_status_type app_update();
 
 /*
- * Indicates if a previous OpenGL API call generated an error. This function
- * will log the particular OpenGL error, along with the provided error message
- * if the message pointer isn't NULL, and returns true; otherwise, if there's no
- * error at the point this function is called, nothing is logged, and false is
- * returned.
+ * Returns the application's window.
  */
-bool opengl_error(const char* const message);
+SDL_Window* app_window_get();

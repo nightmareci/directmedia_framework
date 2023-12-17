@@ -1,18 +1,19 @@
+#pragma once
 /*
  * MIT License
- *
+ * 
  * Copyright (c) 2023 Brandon McGriff <nightmareci@gmail.com>
- *
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * 
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- *
+ * 
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -22,24 +23,21 @@
  * SOFTWARE.
  */
 
-#include "data/data.h"
-#include "util/mem.h"
+#include "render/private/layers.h"
+#include "data/data_types.h"
+#include <stddef.h>
 
-static bool create(data_object* const data, SDL_RWops* const rwops) {
-	data->music = Mix_LoadMUS_RW(rwops, 0);
+/*
+ * Generate graphical text using a bitmap font. Only supports UTF-8 fonts and
+ * text.
+ */
 
-	return data->music != NULL;
-}
+/*
+ * Print the string at the requested position.
+ */
+bool print_layer_string(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const string);
 
-static bool destroy(data_object* const data) {
-	Mix_FreeMusic(data->music);
-	mem_free((void*)data->id.filename);
-	mem_free((void*)data);
-
-	return true;
-}
-
-static bool create(data_object* const data, SDL_RWops* const rwops);
-static bool destroy(data_object* const data);
-
-DATA_TYPE_MANAGER_DEFINITION(data_type_manager_music, create, destroy);
+/*
+ * Print the formatted text at the requested position.
+ */
+bool print_layer_formatted(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const format, ...);

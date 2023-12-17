@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "data/data_type_manager.h"
+#include "data/private/data_type_manager.h"
 #include "util/font.h"
 #include <stdint.h>
 

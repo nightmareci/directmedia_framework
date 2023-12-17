@@ -64,24 +64,9 @@ extern const char* const app_configure_time;
 extern const char* const app_title;
 
 /*
- * Initialize the application. Must only be called in the main thread.
- */
-bool app_init(const int argc, char** const argv);
-
-/*
- * Deinitialize the application. Must only be called in the main thread.
- */
-void app_deinit();
-
-/*
  * Returns true if the application is fully initialized, otherwise false.
  */
 bool app_inited();
-
-/*
- * Returns the application's window.
- */
-SDL_Window* app_window_get();
 
 /*
  * Returns the size of the render output pixel rectangle the game renders into,
@@ -100,17 +85,6 @@ void app_render_size_get(size_t* const width, size_t* const height);
 double app_render_frame_rate_get();
 
 /*
- * Creates an OpenGL context of the application's window. Must only be called in
- * the main thread.
- */
-SDL_GLContext app_glcontext_create();
-
-/*
- * Destroy an OpenGL context. Must only be called in the main thread.
- */
-void app_glcontext_destroy(SDL_GLContext const glcontext);
-
-/*
  * Returns the current resource path.
  */
 const char* app_resource_path_get();
@@ -119,17 +93,3 @@ const char* app_resource_path_get();
  * Returns the current save path.
  */
 const char* app_save_path_get();
-
-/*
- * Does one step of updating the application's main thread tasks (reading input
- * and updating the game).
- *
- * This function should be called in a loop, continuing so long as this function
- * returns QUIT_NOT, breaking out when this function returns QUIT_SUCCESS or
- * QUIT_FAILURE, returning EXIT_SUCCESS or EXIT_FAILURE to the operating system
- * corresponding to the returned quit status.
- *
- * This function must only be called in the main thread, between app_init and
- * app_deinit.
- */
-quit_status_type app_update();

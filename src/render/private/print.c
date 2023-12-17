@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#include "render/print.h"
-#include "util/text.h"
+#include "render/private/print.h"
+#include "util/str.h"
 #include "util/log.h"
 #include "util/mem.h"
 #include <stdlib.h>
@@ -31,14 +31,14 @@
 #include <float.h>
 #include <assert.h>
 
-bool print_layer_text(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const text) {
+bool print_layer_string(data_font_object* const font, layers_object* const layers, const size_t layer_index, const float x, const float y, const char* const string) {
 	assert(font != NULL);
 	assert(layers != NULL);
 	assert(x >= -FLT_MAX);
 	assert(x <= FLT_MAX);
 	assert(y >= -FLT_MAX);
 	assert(y <= FLT_MAX);
-	assert(text != NULL);
+	assert(string != NULL);
 
 	/*
 	 * TODO: Create a new font generator that sets the Unicode bit properly. It
@@ -51,19 +51,19 @@ bool print_layer_text(data_font_object* const font, layers_object* const layers,
 		return false;
 	}
 
-	const size_t len = utf8_strlen(text);
+	const size_t len = utf8_strlen(string);
 	if (len == 0u) {
 		return true;
 	}
 
 	float print_x = x, print_y = y;
 	size_t bytes;
-	uint32_t c = utf8_get(text, &bytes);
+	uint32_t c = utf8_get(string, &bytes);
 	if (c == UINT32_C(0xFFFD) && bytes == 1u) {
 		return false;
 	}
 
-	const char* s = text + bytes;
+	const char* s = string + bytes;
 
 	sprite_type* const sprites = mem_malloc(sizeof(sprite_type) * len);
 	if (sprites == NULL) {
@@ -157,7 +157,7 @@ bool print_layer_formatted(data_font_object* const font, layers_object* const la
 		return false;
 	}
 
-	const bool success = print_layer_text(font, layers, layer_index, x, y, text);
+	const bool success = print_layer_string(font, layers, layer_index, x, y, text);
 	mem_free(text);
 	return success;
 }

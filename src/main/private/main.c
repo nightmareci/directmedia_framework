@@ -23,8 +23,8 @@
  */
 
 #include "main/main.h"
-#include "main/app.h"
-#include "util/mem.h"
+#include "main/private/app_private.h"
+#include "util/private/mem_private.h"
 #include "game/game.h"
 #include "SDL.h"
 #include <stdlib.h>

@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#include "render/sprites.h"
-#include "opengl/opengl.h"
+#include "render/private/sprites.h"
+#include "render/private/opengl.h"
 #include "util/log.h"
 #include "util/maths.h"
 #include "util/mem.h"

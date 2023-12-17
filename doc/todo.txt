@@ -2,3 +2,18 @@ Implement instance renderer; gives a full interface to do instanced rendering of
 an object (a single set of geometry). Provide some 3D support through the
 instance renderer. Refactor the sprite API to use instanced rendering of a quad
 object internally.
+
+Support loading external Lua code for the game code, even not using any compiled-in game code
+Set game rendering resolution at runtime
+Scalable window, game content centered
+Render-to-texture game output option with scaled output filter options
+Engine always clears the whole screen to black, render_clear only clears the game content viewport
+PRNG
+Runtime switching between windowed and fullscreen
+Keyboard and game controller input
+Present sync options (vsync, etc.)
+Runtime/Lua setting of window title
+Maybe OpenType font support (SDL_ttf, font.h => ttf.h and bmf.h)? Or only support bitmap fonts?
+Fully support saving and loading files, as it uses binser for serialization of save data
+Drawing of single-color flat rectangles
+Input configuration even with the action set system
