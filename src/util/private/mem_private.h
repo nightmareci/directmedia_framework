@@ -43,6 +43,12 @@
 bool mem_init();
 
 /*
+ * Deinitializes the memory subsystem. This is entirely optional, but if
+ * called, a previous successful call of mem_init must have been made.
+ */
+bool mem_deinit();
+
+/*
  * Allocation function suitable for passing to lua_newstate().
  */
 void* mem_lua_alloc(void* userdata, void* mem, size_t old_size, size_t new_size);

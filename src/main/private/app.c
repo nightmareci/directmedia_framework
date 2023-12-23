@@ -57,7 +57,7 @@ static SDL_sem* sem_log_filename = NULL;
 static SDL_sem* sem_render_start = NULL;
 static SDL_sem* sem_init_game = NULL;
 static SDL_sem* sem_deinit_render = NULL;
-static SDL_sem* sem_render_after_tick = NULL;
+static SDL_sem* sem_render_now = NULL;
 static bool sems_inited = false;
 
 #define SEM_WAIT(sem) \
@@ -362,9 +362,9 @@ static bool sems_init() {
 		return false;
 	}
 
-	sem_render_after_tick = SDL_CreateSemaphore(0u);
-	if (sem_render_after_tick == NULL) {
-		log_printf("Error creating semaphore for halting the render thread before render_deinit: %s\n", SDL_GetError());
+	sem_render_now = SDL_CreateSemaphore(0u);
+	if (sem_render_now == NULL) {
+		log_printf("Error creating semaphore for waking the render thread to render frames: %s\n", SDL_GetError());
 		return false;
 	}
 
@@ -373,7 +373,7 @@ static bool sems_init() {
 }
 
 static void sems_deinit() {
-	if (sem_render_after_tick != NULL) SDL_DestroySemaphore(sem_render_after_tick);
+	if (sem_render_now != NULL) SDL_DestroySemaphore(sem_render_now);
 	if (sem_deinit_render != NULL) SDL_DestroySemaphore(sem_deinit_render);
 	if (sem_init_game != NULL) SDL_DestroySemaphore(sem_init_game);
 	if (sem_render_start != NULL) SDL_DestroySemaphore(sem_render_start);
@@ -383,7 +383,7 @@ static void sems_deinit() {
 	sem_render_start = NULL;
 	sem_init_game = NULL;
 	sem_deinit_render = NULL;
-	sem_render_after_tick = NULL;
+	sem_render_now = NULL;
 
 	sems_inited = false;
 }
@@ -393,12 +393,12 @@ static uint64_t frame_duration_get() {
 	const int display_index = SDL_GetWindowDisplayIndex(window);
 	if (display_index < 0) {
 		log_printf("Error: %s\n", SDL_GetError());
-		return 0u;
+		return NANOTIME_NSEC_PER_SEC / 60u;
 	}
 	SDL_DisplayMode display_mode;
 	if (SDL_GetDesktopDisplayMode(display_index, &display_mode) < 0) {
 		log_printf("Error: %s\n", SDL_GetError());
-		return 0u;
+		return NANOTIME_NSEC_PER_SEC / 60u;
 	}
 	if (display_mode.refresh_rate <= 0) {
 		return NANOTIME_NSEC_PER_SEC / 60u;
@@ -494,7 +494,7 @@ static int SDLCALL render_thread_func(void* data) {
 
 	nanotime_step_init(&stepper, frame_duration_get(), now_max, nanotime_now, nanotime_sleep);
 	while (true) {
-		if (SDL_SemWait(sem_render_after_tick) < 0) {
+		if (SDL_SemWait(sem_render_now) < 0) {
 			log_printf("Error waiting to render in the render thread: %s\n", SDL_GetError());
 			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 			exit_code = EXIT_FAILURE;
@@ -522,13 +522,20 @@ static int SDLCALL render_thread_func(void* data) {
 			}
 			const uint64_t last_time = stepper.sleep_point;
 			const uint64_t frame_duration = frame_duration_get();
-			if (!SDL_AtomicGet(&game_thread_inited) || frame_duration > game_tick_duration) {
+			if (!SDL_AtomicGet(&game_thread_inited) || (frame_duration > game_tick_duration && stepper.sleep_duration != frame_duration)) {
 				stepper.sleep_duration = frame_duration;
+				stepper.accumulator = 0u;
 			}
-			else {
+			else if (stepper.sleep_duration != game_tick_duration) {
 				stepper.sleep_duration = game_tick_duration;
+				stepper.accumulator = 0u;
 			}
-			nanotime_step(&stepper);
+
+			if (!nanotime_step(&stepper)) {
+				stepper.sleep_point = nanotime_now();
+				stepper.accumulator = 0u;
+				nanotime_step(&stepper);
+			}
 
 			SDL_AtomicLock(&render_frame_rate_lock);
 			render_frame_rate = (double)NANOTIME_NSEC_PER_SEC / nanotime_interval(last_time, stepper.sleep_point, now_max);
@@ -594,7 +601,7 @@ static void render_thread_deinit() {
 	if (sems_inited && render_thread != NULL) {
 		SEM_POST(sem_deinit_render);
 
-		if (SDL_SemPost(sem_render_after_tick) < 0) {
+		if (SDL_SemPost(sem_render_now) < 0) {
 			log_printf("Error posting the render thread while deinitializing the renderer: %s\n", SDL_GetError());
 			abort();
 		}
@@ -625,8 +632,8 @@ static bool game_thread_init() {
 	SEM_WAIT(sem_init_game);
 	if (SDL_AtomicGet(&quit_now) == QUIT_FAILURE) {
 		log_printf("Error initializing render thread before starting the game\n");
-		if (SDL_SemPost(sem_render_after_tick) < 0) {
-			log_printf("Error posting the render thread while initializing the game: %s\n", SDL_GetError());
+		if (SDL_SemPost(sem_render_now) < 0) {
+			log_printf("Error posting the render thread to render a frame while initializing the game: %s\n", SDL_GetError());
 			return false;
 		}
 		SDL_WaitThread(render_thread, NULL);
@@ -725,15 +732,23 @@ void app_deinit() {
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicCAS(&quit_now, QUIT_NOT, QUIT_SUCCESS);
 
-	render_thread_deinit();
+	if (render_thread_inited) {
+		render_thread_deinit();
+	}
 
-	sems_deinit();
+	if (sems_inited) {
+		sems_deinit();
+	}
 
 	audio_deinit();
 
-	paths_deinit();
+	if (paths_inited) {
+		paths_deinit();
+	}
 
-	libs_deinit();
+	if (libs_inited) {
+		libs_deinit();
+	}
 
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSet(&all_inited, 0);
@@ -842,8 +857,8 @@ quit_status_type app_update() {
 		return QUIT_FAILURE;
 	}
 
-	if (SDL_SemValue(sem_render_after_tick) == 0) {
-		SDL_SemPost(sem_render_after_tick);
+	if (SDL_SemValue(sem_render_now) == 0) {
+		SDL_SemPost(sem_render_now);
 	}
 
 	if (quit_game) {
@@ -851,11 +866,11 @@ quit_status_type app_update() {
 		return QUIT_SUCCESS;
 	}
 
-	static uint64_t skips = 0u;
 	if (!nanotime_step(&main_stepper)) {
-		skips++;
 		// This function only runs in the main thread, so stdout access is
 		// allowed here, along with nonatomic static variables.
+		static uint64_t skips = 0u;
+		skips++;
 		printf("skips == %" PRIu64 "\n", skips);
 		fflush(stdout);
 	}

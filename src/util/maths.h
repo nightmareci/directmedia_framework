@@ -25,6 +25,8 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <float.h>
+#include <limits.h>
 
 #define MATHS_PId 3.14159265358979323846
 #define MATHS_PIf 3.14159265358979323846f

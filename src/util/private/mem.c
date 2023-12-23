@@ -118,6 +118,24 @@ bool mem_init() {
 	) == 0;
 }
 
+bool mem_deinit() {
+	if (
+		orig_malloc == NULL ||
+		orig_calloc == NULL ||
+		orig_realloc == NULL ||
+		orig_free == NULL
+	) {
+		return false;
+	}
+
+	return SDL_SetMemoryFunctions(
+		orig_malloc,
+		orig_calloc,
+		orig_realloc,
+		orig_free
+	) == 0;
+}
+
 /*
  * ABA case in the total_alloc_* functions' solution for atomic adds to
  * pointers with SDL's atomics:
@@ -158,7 +176,7 @@ static void total_alloc_sub(void* const mem) {
 
 void* SDLCALL mem_malloc(size_t size) {
 	if (size <= mem_left()) {
-		void* const mem = orig_malloc(size);
+		void* const mem = malloc(size);
 		if (mem != NULL) {
 			if (!total_alloc_add(mem)) {
 				mem_free(mem);
@@ -174,7 +192,7 @@ void* SDLCALL mem_malloc(size_t size) {
 
 void* SDLCALL mem_calloc(size_t nmemb, size_t size) {
 	if (nmemb <= mem_left() / size) {
-		void* const mem = orig_calloc(nmemb, size);
+		void* const mem = calloc(nmemb, size);
 		if (mem != NULL) {
 			if (!total_alloc_add(mem)) {
 				mem_free(mem);
@@ -197,7 +215,7 @@ void* SDLCALL mem_realloc(void* mem, size_t size) {
 			}
 			total_alloc_sub(mem);
 		}
-		void* const realloc_mem = orig_realloc(mem, size);
+		void* const realloc_mem = realloc(mem, size);
 		if (realloc_mem != NULL) {
 			if (!total_alloc_add(realloc_mem)) {
 				if (realloc_mem != mem) {
@@ -215,7 +233,7 @@ void* SDLCALL mem_realloc(void* mem, size_t size) {
 
 void SDLCALL mem_free(void* mem) {
 	total_alloc_sub(mem);
-	orig_free(mem);
+	free(mem);
 }
 
 /*
@@ -265,16 +283,20 @@ bool mem_init() {
 	return true;
 }
 
+bool mem_deinit() {
+	return true;
+}
+
 #endif
 
 void* mem_lua_alloc(void* userdata, void* mem, size_t old_size, size_t new_size) {
 	if (new_size > 0u) {
 		return mem_realloc(mem, new_size);
 	}
-	else {
+	else if (mem != NULL) {
 		mem_free(mem);
-		return NULL;
 	}
+	return NULL;
 }
 
 // TODO: Make mem_bump_* thread-safe. Probably require that create/destroy are
@@ -287,7 +309,7 @@ void* mem_lua_alloc(void* userdata, void* mem, size_t old_size, size_t new_size)
 // by engine-developers, not engine-users.
 
 struct mem_bump_object {
-	void* chunk;
+	uint8_t* chunk;
 	size_t chunk_pos;
 	size_t chunk_size;
 	size_t next_size;

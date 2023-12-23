@@ -79,6 +79,10 @@ int main(int argc, char** argv) {
 
 	app_deinit();
 
+	if (!mem_deinit()) {
+		quit_status = QUIT_FAILURE;
+	}
+
 	switch (quit_status) {
 	case QUIT_SUCCESS:
 		return EXIT_SUCCESS;

@@ -32,7 +32,7 @@
 #include "util/log.h"
 #include "util/str.h"
 #include "util/mem.h"
-#include <math.h>
+#include "util/maths.h"
 #include <stdarg.h>
 #include <assert.h>
 
