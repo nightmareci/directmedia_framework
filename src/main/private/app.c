@@ -86,6 +86,13 @@ static SDL_SpinLock render_size_lock;
 static int render_width = 0;
 static int render_height = 0;
 
+/*
+ * There are some situations where the main thread must signal to the render
+ * thread to reinitialize its stepper object, to ensure correct render frame
+ * pacing; this is used as a boolean shared variable to do such signalling.
+ */
+static SDL_atomic_t render_stepper_init = { 0 };
+
 static SDL_SpinLock render_frame_rate_lock;
 static double render_frame_rate = -1.0;
 
@@ -482,17 +489,19 @@ static int SDLCALL render_thread_func(void* data) {
 	// so renderer objects will be valid for drawing whenever drawing is
 	// required, but only the latest-produced frame will be drawn upon each
 	// post.
-	bool first_render = true;
-	const uint64_t now_max = nanotime_now_max();
-	nanotime_step_data stepper;
-	int exit_code = EXIT_SUCCESS;
 
 	// TODO: Investigate which of post/wait or always-loop produces the lowest
 	// latency. Though if post/wait better ensures every game tick gets rendered
 	// one-after-the-other, with none missed, when tick rate and frame rate
 	// match at 60 Hz, then maybe consider offering both options.
 
-	nanotime_step_init(&stepper, frame_duration_get(), now_max, nanotime_now, nanotime_sleep);
+	const uint64_t now_max = nanotime_now_max();
+	nanotime_step_data stepper;
+	int exit_code = EXIT_SUCCESS;
+
+	stepper.sleep_duration = 0u;
+	bool skipped = false;
+	frames_status_type last_status = FRAMES_STATUS_NO_PRESENT;
 	while (true) {
 		if (SDL_SemWait(sem_render_now) < 0) {
 			log_printf("Error waiting to render in the render thread: %s\n", SDL_GetError());
@@ -505,42 +514,43 @@ static int SDLCALL render_thread_func(void* data) {
 			break;
 		}
 
-		const frames_status_type status = frames_draw_latest(frames);
-
-		if (status == FRAMES_STATUS_ERROR) {
+		const frames_status_type frames_status = frames_draw_latest(frames);
+		if (frames_status == FRAMES_STATUS_ERROR) {
 			log_printf("Error drawing latest frame in render thread\n");
 			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 			exit_code = EXIT_FAILURE;
 			break;
 		}
 
-		if (status == FRAMES_STATUS_PRESENT) {
-			if (first_render) {
-				stepper.sleep_point = nanotime_now();
-				stepper.accumulator = 0u;
-				first_render = false;
-			}
-			const uint64_t last_time = stepper.sleep_point;
-			const uint64_t frame_duration = frame_duration_get();
-			if (!SDL_AtomicGet(&game_thread_inited) || (frame_duration > game_tick_duration && stepper.sleep_duration != frame_duration)) {
-				stepper.sleep_duration = frame_duration;
-				stepper.accumulator = 0u;
-			}
-			else if (stepper.sleep_duration != game_tick_duration) {
-				stepper.sleep_duration = game_tick_duration;
-				stepper.accumulator = 0u;
-			}
-
-			if (!nanotime_step(&stepper)) {
-				stepper.sleep_point = nanotime_now();
-				stepper.accumulator = 0u;
-				nanotime_step(&stepper);
-			}
-
-			SDL_AtomicLock(&render_frame_rate_lock);
-			render_frame_rate = (double)NANOTIME_NSEC_PER_SEC / nanotime_interval(last_time, stepper.sleep_point, now_max);
-			SDL_AtomicUnlock(&render_frame_rate_lock);
+		const uint64_t frame_duration = frame_duration_get();
+		uint64_t max_duration;
+		if (SDL_AtomicGet(&game_thread_inited) && game_tick_duration > frame_duration) {
+			max_duration = game_tick_duration;
 		}
+		else {
+			max_duration = frame_duration;
+		}
+
+		// We don't need to use the skipping feature of nanotime_step, so we
+		// just reinitialize the stepper object upon skips. The goal is to pace
+		// out all renders, we don't need to maintain correct timing of render
+		// frames by skipping sleep steps, as is desired of game ticks.
+		//
+		// However, we *do* want to take advantage of the accumulator
+		// accounting in nanotime_step, so we don't want to always reinitialize
+		// the stepper, which resets the accumulator to zero.
+		if (skipped || stepper.sleep_duration != max_duration || last_status != FRAMES_STATUS_PRESENT || SDL_AtomicCAS(&render_stepper_init, 1, 0)) {
+			nanotime_step_init(&stepper, max_duration, now_max, nanotime_now, nanotime_sleep);
+		}
+		last_status = frames_status;
+
+		const uint64_t start = stepper.sleep_point;
+		skipped = !nanotime_step(&stepper);
+		const uint64_t interval = nanotime_interval(start, stepper.sleep_point, now_max);
+		const double next_frame_rate = (double)NANOTIME_NSEC_PER_SEC / interval;
+		SDL_AtomicLock(&render_frame_rate_lock);
+		render_frame_rate = next_frame_rate;
+		SDL_AtomicUnlock(&render_frame_rate_lock);
 	}
 
 	SEM_WAIT(sem_deinit_render);
@@ -802,6 +812,7 @@ static bool quit_app = false;
 static int SDLCALL event_filter(void* userdata, SDL_Event* event) {
 	switch (event->type) {
 	case SDL_WINDOWEVENT:
+		SDL_AtomicSet(&render_stepper_init, 1);
 		switch (event->window.event) {
 		case SDL_WINDOWEVENT_SIZE_CHANGED:
 			SDL_AtomicLock(&render_size_lock);
@@ -867,6 +878,7 @@ quit_status_type app_update() {
 	}
 
 	if (!nanotime_step(&main_stepper)) {
+		SDL_AtomicSet(&render_stepper_init, 1);
 		// This function only runs in the main thread, so stdout access is
 		// allowed here, along with nonatomic static variables.
 		static uint64_t skips = 0u;
