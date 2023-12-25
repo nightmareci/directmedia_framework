@@ -102,14 +102,14 @@ opengl_context_object opengl_context_create() {
 	return glcontext;
 }
 
-void opengl_context_destroy(opengl_context_object* const context) {
+void opengl_context_destroy(opengl_context_object const context) {
 	assert(SDL_ThreadID() == main_thread_id_get());
 	assert(context != NULL);
 
 	SDL_GL_DeleteContext(context);
 }
 
-bool opengl_context_make_current(opengl_context_object* const context) {
+bool opengl_context_make_current(opengl_context_object const context) {
 	SDL_Window* const window = app_window_get();
 
 	if (SDL_GL_MakeCurrent(window, context) < 0) {

@@ -46,13 +46,13 @@ opengl_context_object opengl_context_create();
  * Destroy an OpenGL context. You must ensure the context is not set as current,
  * before calling this function. Must only be called in the main thread.
  */
-void opengl_context_destroy(opengl_context_object* const context);
+void opengl_context_destroy(opengl_context_object const context);
 
 /*
  * Make an OpenGL context current in the thread calling this function. Call with
  * NULL to make no context current, such as before destroying the context.
  */
-bool opengl_context_make_current(opengl_context_object* const context);
+bool opengl_context_make_current(opengl_context_object const context);
 
 /*
  * Create an OpenGL shader object of the requested type. Returns 0 if creation
