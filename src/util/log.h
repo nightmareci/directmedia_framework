@@ -23,25 +23,33 @@
  * SOFTWARE.
  */
 
-#include <stdbool.h>
-
 /*
- * Thread-safe stdio-style logging facility. Thread safety of logging is
- * achieved via one-log-file-per-thread.
- *
- * You should probably stick to UTF-8 encoding for the strings.
+ * Thread-safe logging API. In the case of errors indicated by these functions'
+ * return value, you should revert to some other means of communicating an
+ * error, such as returning EXIT_FAILURE to the operating system, and/or
+ * directly printing to stdout only in the main thread.
  */
+
+#include <stdarg.h>
+#include <stdbool.h>
 
 /*
  * Simply log a text string, verbatim. No formatting or interpretation of the
  * text is done. It is erroneous to request log operations before setting the
  * filename for the current thread.
  */
-bool log_text(const char* const text);
+void log_text(const char* const text);
 
 /*
  * Log some text printf-style. Internally just uses sprintf, so read the sprintf
  * documentation for full usage. It is erroneous to request log operations
  * before setting the filename for the current thread.
  */
-bool log_printf(const char* const format, ...);
+void log_printf(const char* const format, ...);
+
+/*
+ * Log some text vprintf-style. Internally just uses sprintf, so read the
+ * sprintf documentation for full usage. It is erroneous to request log
+ * operations before setting the filename for the current thread.
+ */
+void log_vprintf(const char* const format, va_list args);

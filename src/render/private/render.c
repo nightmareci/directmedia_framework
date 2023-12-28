@@ -43,6 +43,8 @@ static layers_object* layers;
 static sprites_object* sprites;
 
 bool render_init(frames_object* const frames) {
+	log_printf("Initializing the render API\n");
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_CULL_FACE);
@@ -57,6 +59,8 @@ bool render_init(frames_object* const frames) {
 
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&render_frames, frames);
+
+	log_printf("Successfully initialized the render API\n");
 
 	return true;
 }
@@ -80,14 +84,7 @@ void render_deinit() {
 }
 
 static bool render_start_update_func(void* const state) {
-	vecptr const screen_size = state;
-	if (!(
-		screen_size[0] >= 0.0f && screen_size[0] <= FLT_MAX &&
-		screen_size[1] >= 0.0f && screen_size[1] <= FLT_MAX
-	)) {
-		mem_free(screen_size);
-		return false;
-	}
+	ivecptr const screen_size = state;
 
 	if (sprites == NULL) {
 		sprites = sprites_create(0u);
@@ -100,8 +97,8 @@ static bool render_start_update_func(void* const state) {
 		sprites_restart(sprites);
 	}
 
-	size_t render_size[2];
-	app_render_size_get(&render_size[0], &render_size[1]);
+	size_t render_width, render_height;
+	app_render_size_get(&render_width, &render_height);
 
 	if (layers == NULL) {
 		layers = layers_create(NUM_LAYERS);
@@ -114,41 +111,48 @@ static bool render_start_update_func(void* const state) {
 		layers_restart(layers);
 	}
 
-	const float render_aspect = (float)render_size[0] / (float)render_size[1];
-	const float screen_aspect = screen_size[0] / screen_size[1];
-	vec2 set_size = { screen_size[0], screen_size[1] };
-	if (render_aspect > 1.0f) {
-		if (render_aspect > screen_aspect) {
-			set_size[0] *= render_aspect / screen_aspect;
-		}
-		else {
-			set_size[1] *= screen_aspect / render_aspect;
-		}
+	sprites_screen_set(sprites, screen_size[0], screen_size[1]);
+	layers_screen_set(layers, screen_size[0], screen_size[1]);
+
+	const float render_aspect = (float)render_width / (float)render_height;
+	const float screen_aspect = (float)screen_size[0] / (float)screen_size[1];
+	GLint set_x, set_y;
+	GLsizei set_width, set_height;
+	if (render_aspect == screen_aspect) {
+		set_height = render_height;
+		set_width = render_width;
+		set_y = 0;
+		set_x = 0;
 	}
-	else if (render_aspect < 1.0f) {
-		if (render_aspect > screen_aspect) {
-			set_size[0] *= render_aspect / screen_aspect;
-		}
-		else {
-			set_size[1] *= screen_aspect / render_aspect;
-		}
+	else if (render_aspect > screen_aspect) {
+		set_height = (GLsizei)render_height;
+		set_width = (GLsizei)(set_height * screen_aspect);
+		set_y = 0;
+		set_x = (GLint)((render_width - set_width) / 2);
+	}
+	else {
+		set_width = (GLsizei)render_width;
+		set_height = (GLsizei)(set_width / screen_aspect);
+		set_x = 0;
+		set_y = (GLint)((render_height - set_height) / 2);
 	}
 
-	sprites_screen_set(sprites, set_size[0], set_size[1]);
-	layers_screen_set(layers, set_size[0], set_size[1]);
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(set_x, set_y, set_width, set_height);
+	glViewport(set_x, set_y, set_width, set_height);;
 
 	mem_free(screen_size);
 	return true;
 }
 
-bool render_start(const float width, const float height) {
+bool render_start(const int width, const int height) {
 	static const command_funcs funcs = {
 		.update = render_start_update_func,
 		.draw = NULL,
 		.destroy = NULL
 	};
 
-	vecptr const screen_size = mem_malloc(sizeof(vec2));
+	ivecptr const screen_size = mem_malloc(sizeof(ivec2));
 	if (screen_size == NULL) {
 		return false;
 	}

@@ -28,7 +28,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-bool render_start(const float width, const float height);
+bool render_start(const int width, const int height);
 
 bool render_end();
 

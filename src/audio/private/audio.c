@@ -28,6 +28,8 @@ static void assert_inited_thread() {
 #endif
 
 bool audio_init() {
+	log_printf("Initializing audio\n");
+
 	assert(data_cache == NULL);
 	assert(!opened_audio);
 
@@ -42,6 +44,7 @@ bool audio_init() {
 
 	data_cache = data_cache_create(app_resource_path_get(), app_save_path_get());
 	if (data_cache == NULL) {
+		log_printf("Error creating data cache for audio\n");
 		return false;
 	}
 
@@ -52,6 +55,8 @@ bool audio_init() {
 	}
 	num_active_channels = 0;
 	num_alloc_channels = MIX_CHANNELS;
+
+	log_printf("Successfully initialized audio\n");
 
 	return true;
 }

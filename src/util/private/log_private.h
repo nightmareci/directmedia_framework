@@ -24,12 +24,7 @@
  */
 
 #include "util/log.h"
-
-/*
- * TODO: Implement some means for logging when the current thread's log filename
- * hasn't been set. Not having that feature means functions called before
- * logging has been initialized can't log errors.
- */
+#include "util/nanotime.h"
 
 /*
  * Initialize logging support for the whole application. Must be called in the
@@ -43,11 +38,46 @@
  * might be out of order with respect to the real time the threads have
  * submitted logging operations, but at the very least each log operation will
  * fully complete before the next; log operations won't interrupt each other.
+ *
+ * Returns true if initializing was successful, otherwise false in the case of
+ * errors.
  */
 bool log_init(const char* const all_output);
 
 /*
- * Set the log filename used for the current thread. Returns true if setting was
- * successful, otherwise false in the case of errors.
+ * When a filename/stdout is set for all log output, this completes all pending
+ * log operations and deinitializes such support.
+ *
+ * Returns true if deinitializing was successful, otherwise false in the case of
+ * errors.
+ */
+bool log_all_output_deinit();
+
+#define LOG_ALL_OUTPUT_DEQUEUE_EMPTY UINT64_MAX
+
+/*
+ * This dequeues and outputs to the all_output filename/stdout all pending log
+ * operations. If the amount of time spent dequeueing/outputting goes past the
+ * allotted_time, this function immediately returns, possible leaving some log
+ * operations still in the queue; it's the responsibility of the user of the
+ * logging API to ensure continual dequeues with enough throughput to keep up
+ * with submitted log operations, not allowing the queue to grow out of control.
+ *
+ * However, if it's desired to completely empty the queue,
+ * LOG_ALL_OUTPUT_DEQUEUE_EMPTY can be passed as a parameter.
+ * LOG_ALL_OUTPUT_DEQUEUE_EMPTY should *only* be used when it's guaranteed no
+ * other threads are enqueueing log operations, as it's a race condition if
+ * other threads are enqueueing at the same time this function is called.
+ *
+ * Returns true if dequeueing was successful, otherwise false in the case of
+ * errors.
+ */
+bool log_all_output_dequeue(const uint64_t allotted_time);
+
+/*
+ * Set the log filename used for the current thread.
+ *
+ * Returns true if setting was successful, otherwise false in the case of
+ * errors.
  */
 bool log_filename_set(const char* const filename);

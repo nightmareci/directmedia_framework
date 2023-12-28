@@ -36,6 +36,18 @@ bool app_init(const int argc, char** const argv);
 void app_deinit();
 
 /*
+ * Set the name for the current thread. If name is NULL, this unsets the current
+ * thread's name, back to NULL.
+ */
+bool app_this_thread_name_set(const char* const name);
+
+/*
+ * Get the name for the current thread. A get will return NULL if the name is
+ * not currently set for the current thread.
+ */
+const char* const app_this_thread_name_get();
+
+/*
  * Does one step of updating the application's main thread tasks (reading input
  * and updating the game).
  *

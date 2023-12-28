@@ -24,5 +24,7 @@
  */
 
 #include "SDL_thread.h"
+#include <stdbool.h>
 
 SDL_threadID main_thread_id_get();
+bool this_thread_is_main_thread();

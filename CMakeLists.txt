@@ -26,6 +26,9 @@ project(skill-clear
 	LANGUAGES C
 )
 
+set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target.")
+message(STATUS "Build target: ${BUILD_TARGET}")
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED TRUE)
 
@@ -42,6 +45,16 @@ if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE MATCHES Debug)
 	set(IS_DEBUG TRUE)
 else()
 	set(IS_DEBUG FALSE)
+endif()
+
+option(STDOUT_LOG "If enabled, all logging will be printed to stdout." ${IS_DEBUG})
+if (STDOUT_LOG)
+	add_compile_definitions(STDOUT_LOG)
+endif()
+
+option(REALTIME "If enabled, the application update loop will be run with realtime thread priority where supported.")
+if(REALTIME)
+	add_compile_definitions(REALTIME)
 endif()
 
 option(MEM_DEBUG "If enabled, memory debugging will be included regardless of build type." ${IS_DEBUG})
@@ -61,9 +74,6 @@ if(SHOW_RELEASE_VERSION)
 else()
 	set(VERSION "Prerelease ${CONFIGURE_TIME}")
 endif()
-
-set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target.")
-message(STATUS "Build target: ${BUILD_TARGET}")
 
 option(USE_VENDOR_LIBRARIES "Enable building and usage of the vendor-provided libraries instead of system-installed libraries." FALSE)
 

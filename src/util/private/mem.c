@@ -93,7 +93,8 @@ size_t mem_left() {
 #endif
 
 #ifdef MEM_DEBUG
-static void* total_alloc = 0;
+static SDL_SpinLock total_alloc_lock;
+static size_t total_alloc = 0u;
 
 static void *(SDLCALL *orig_malloc)(size_t size) = NULL;
 static void *(SDLCALL *orig_calloc)(size_t nmemb, size_t size) = NULL;
@@ -101,7 +102,9 @@ static void *(SDLCALL *orig_realloc)(void *mem, size_t size) = NULL;
 static void (SDLCALL *orig_free)(void *mem) = NULL;
 
 bool mem_init() {
-	SDL_AtomicSetPtr((void**)&total_alloc, (void*)(uintptr_t)0u);
+	SDL_AtomicLock(&total_alloc_lock);
+	total_alloc = 0u;
+	SDL_AtomicUnlock(&total_alloc_lock);
 
 	SDL_GetMemoryFunctions(
 		&orig_malloc,
@@ -110,68 +113,59 @@ bool mem_init() {
 		&orig_free
 	);
 
-	return SDL_SetMemoryFunctions(
+	const int status = SDL_SetMemoryFunctions(
 		mem_malloc,
 		mem_calloc,
 		mem_realloc,
 		mem_free
-	) == 0;
+	);
+	if (status != 0) {
+		log_printf("Failed to set SDL's memory functions to the mem_* functions\n");
+	}
+	return status == 0;
 }
 
 bool mem_deinit() {
-	if (
-		orig_malloc == NULL ||
-		orig_calloc == NULL ||
-		orig_realloc == NULL ||
-		orig_free == NULL
-	) {
-		return false;
-	}
+	assert(orig_malloc != NULL);
+	assert(orig_calloc != NULL);
+	assert(orig_realloc != NULL);
+	assert(orig_free != NULL);
 
-	return SDL_SetMemoryFunctions(
+	const int status = SDL_SetMemoryFunctions(
 		orig_malloc,
 		orig_calloc,
 		orig_realloc,
 		orig_free
-	) == 0;
+	);
+	if (status != 0) {
+		log_printf("Failed to restore SDL's memory functions to their initial defaults\n");
+	}
+	return status == 0;
 }
-
-/*
- * ABA case in the total_alloc_* functions' solution for atomic adds to
- * pointers with SDL's atomics:
- *
- * There can be an ABA case in a thread A, between the atomic read of
- * total_alloc and CAS by thread A, where other thread(s) change total_alloc in
- * the mean time between read and CAS, but total_alloc ends up as the same
- * value as thread A initially read at the point of thread A's CAS; this is not
- * an "unacceptable ABA case", because such a case still preserves the desired
- * invariant, that total_alloc always have every allocation's bytes accounted
- * for eventually, with no bytes missed.
- */
 
 static bool total_alloc_add(void* const mem) {
 	const size_t size = mem_sizeof(mem);
-	size_t old_total;
-	do {
-		old_total = (size_t)(uintptr_t)SDL_AtomicGetPtr(&total_alloc);
-		if (size > SIZE_MAX - old_total) {
-			log_printf("Error allocating memory: size > SIZE_MAX - old_total\n");
-			return false;
-		}
-	} while (!SDL_AtomicCASPtr(&total_alloc, (void*)(uintptr_t)old_total, (void*)(uintptr_t)(old_total + size)));
+	SDL_AtomicLock(&total_alloc_lock);
+	if (size > SIZE_MAX - total_alloc) {
+		SDL_AtomicUnlock(&total_alloc_lock);
+		log_printf("Error allocating memory: size > SIZE_MAX - total_alloc\n");
+		return false;
+	}
+	total_alloc += size;
+	SDL_AtomicUnlock(&total_alloc_lock);
 	return true;
 }
 
 static void total_alloc_sub(void* const mem) {
 	const size_t size = mem_sizeof(mem);
-	size_t old_total;
-	do {
-		old_total = (size_t)(uintptr_t)SDL_AtomicGetPtr(&total_alloc);
-		if (size > old_total) {
-			log_printf("Error freeing memory: size > old_total\n");
-			abort();
-		}
-	} while (!SDL_AtomicCASPtr(&total_alloc, (void*)(uintptr_t)old_total, (void*)(uintptr_t)(old_total - size)));
+	SDL_AtomicLock(&total_alloc_lock);
+	if (size > total_alloc) {
+		SDL_AtomicUnlock(&total_alloc_lock);
+		log_printf("Error freeing memory: size > total_alloc\n");
+		abort();
+	}
+	total_alloc -= size;
+	SDL_AtomicUnlock(&total_alloc_lock);
 }
 
 void* SDLCALL mem_malloc(size_t size) {
@@ -273,9 +267,10 @@ void mem_aligned_free(void* mem) {
 }
 
 size_t mem_total() {
-	const size_t total = (size_t)(uintptr_t)SDL_AtomicGetPtr(&total_alloc);
-	SDL_MemoryBarrierAcquire();
-	return total;
+	SDL_AtomicLock(&total_alloc_lock);
+	const register size_t current_total_alloc = total_alloc;
+	SDL_AtomicUnlock(&total_alloc_lock);
+	return current_total_alloc;
 }
 
 #else

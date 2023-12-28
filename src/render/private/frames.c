@@ -168,7 +168,10 @@ frames_status_type frames_draw_latest(frames_object* const frames) {
 
 	size_t screen_size[2];
 	app_render_size_get(&screen_size[0], &screen_size[1]);
+	glDisable(GL_SCISSOR_TEST);
 	glViewport(0, 0, screen_size[0], screen_size[1]);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
 
 	bool latest_frame_found = false;
 	for (

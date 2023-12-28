@@ -49,7 +49,7 @@ static bool paths_inited = false;
 static bool img_inited = false;
 static bool mix_inited = false;
 static bool window_inited = false;
-static bool sdl_inited = false;
+static bool audio_inited = false;
 static bool libs_inited = false;
 
 static SDL_atomic_t sync_threads = { 0 };
@@ -79,6 +79,7 @@ static frames_object* render_frames = NULL;
 static bool render_thread_inited = false;
 static uint64_t game_tick_duration;
 static SDL_atomic_t game_thread_inited = { 0 };
+static SDL_TLSID thread_names = 0;
 
 static SDL_Window* window = NULL;
 
@@ -148,6 +149,8 @@ static SDL_atomic_t all_inited = { 0 };
 static opengl_context_object main_thread_opengl_context = NULL;
 
 static bool paths_init(const int argc, char** const argv) {
+	log_printf("Initializing data file paths\n");
+
 	bool portable_app = false;
 	const char* resource_path_override = NULL;
 	const char* save_path_override = NULL;
@@ -176,8 +179,7 @@ static bool paths_init(const int argc, char** const argv) {
 			end == '/' ? "" : "/"
 			#endif
 		)), resource_path == NULL) {
-			// TODO
-			//log_printf("Error creating resource path string\n");
+			log_printf("Error creating resource path string\n");
 			app_deinit();
 			return false;
 		}
@@ -186,8 +188,7 @@ static bool paths_init(const int argc, char** const argv) {
 		char* temp_string;
 
 		if ((temp_string = SDL_GetBasePath()) == NULL) {
-			// TODO
-			//log_printf("Error getting SDL base path string: %s\n", SDL_GetError());
+			log_printf("Error getting SDL base path string: %s\n", SDL_GetError());
 			app_deinit();
 			return false;
 		}
@@ -199,8 +200,7 @@ static bool paths_init(const int argc, char** const argv) {
 			"/"
 			#endif
 		)), resource_path == NULL) {
-			// TODO
-			//log_printf("Error creating resource path string\n");
+			log_printf("Error creating resource path string\n");
 			SDL_free(temp_string);
 			app_deinit();
 			return false;
@@ -219,8 +219,7 @@ static bool paths_init(const int argc, char** const argv) {
 			end == '/' ? "" : "/"
 			#endif
 		)), save_path == NULL) {
-			// TODO
-			//log_printf("Error creating save path string\n");
+			log_printf("Error creating save path string\n");
 			app_deinit();
 			return false;
 		}
@@ -230,22 +229,19 @@ static bool paths_init(const int argc, char** const argv) {
 
 		if (portable_app) {
 			if ((temp_string = SDL_GetBasePath()) == NULL) {
-				// TODO
-				//log_printf("Error getting SDL base path string: %s\n", SDL_GetError());
+				log_printf("Error getting SDL base path string: %s\n", SDL_GetError());
 				app_deinit();
 				return false;
 			}
 		}
 		else if ((temp_string = SDL_GetPrefPath(app_organization, app_executable)) == NULL) {
-			// TODO
-			//log_printf("Error getting SDL pref path string: %s\n", SDL_GetError());
+			log_printf("Error getting SDL pref path string: %s\n", SDL_GetError());
 			app_deinit();
 			return false;
 		}
 		SDL_MemoryBarrierRelease();
 		if (SDL_AtomicSetPtr((void**)&save_path, alloc_sprintf("%s", temp_string)), save_path == NULL) {
-			// TODO
-			//log_printf("Error creating the save path string\n");
+			log_printf("Error creating the save path string\n");
 			SDL_free(temp_string);
 			app_deinit();
 			return false;
@@ -253,22 +249,30 @@ static bool paths_init(const int argc, char** const argv) {
 		SDL_free(temp_string);
 	}
 
-	printf(
+	log_printf(
 		"Resource path: %s\n"
 		"Save path: %s\n",
 
 		resource_path,
 		save_path
 	);
-	fflush(stdout);
 
 	paths_inited = true;
+	log_printf("Successfully initialized data file paths\n");
 	return true;
 }
 
 static void paths_deinit() {
-	if (save_path != NULL) mem_free(save_path);
-	if (resource_path != NULL) mem_free(resource_path);
+	if (!paths_inited) {
+		return;
+	}
+
+	if (save_path != NULL) {
+		mem_free(save_path);
+	}
+	if (resource_path != NULL) {
+		mem_free(resource_path);
+	}
 
 	save_path = NULL;
 	resource_path = NULL;
@@ -277,12 +281,7 @@ static void paths_deinit() {
 }
 
 static bool libs_init() {
-	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
-		log_printf("Error: %s\n", SDL_GetError());
-		app_deinit();
-		return false;
-	}
-	sdl_inited = true;
+	log_printf("Initializing libraries\n");
 
 	if (
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3) < 0 ||
@@ -326,25 +325,37 @@ static bool libs_init() {
 	img_inited = true;
 
 	libs_inited = true;
+	log_printf("Successfully initialized libraries\n");
+
 	return true;
 }
 
 static void libs_deinit() {
-	if (img_inited) IMG_Quit();
-	if (mix_inited) Mix_Quit();
-	if (window_inited) SDL_DestroyWindow(window);
-	if (sdl_inited) SDL_Quit();
+	if (!libs_inited) {
+		return;
+	}
+
+	if (img_inited) {
+		IMG_Quit();
+	}
+	if (mix_inited) {
+		Mix_Quit();
+	}
+	if (window_inited) {
+		SDL_DestroyWindow(window);
+	}
 
 	img_inited = false;
 	mix_inited = false;
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&window, NULL);
-	sdl_inited = false;
 
 	libs_inited = false;
 }
 
 static bool sems_init() {
+	log_printf("Initializing app semaphores\n");
+
 	sem_log_filename = SDL_CreateSemaphore(0u);
 	if (sem_log_filename == NULL) {
 		log_printf("Error creating semaphore for communicating errors from the render thread to the main thread: %s\n", SDL_GetError());
@@ -376,10 +387,16 @@ static bool sems_init() {
 	}
 
 	sems_inited = true;
+	log_printf("Successfully initialized app semaphores\n");
+
 	return true;
 }
 
 static void sems_deinit() {
+	if (!sems_inited) {
+		return;
+	}
+
 	if (sem_render_now != NULL) SDL_DestroySemaphore(sem_render_now);
 	if (sem_deinit_render != NULL) SDL_DestroySemaphore(sem_deinit_render);
 	if (sem_init_game != NULL) SDL_DestroySemaphore(sem_init_game);
@@ -421,54 +438,73 @@ static int SDLCALL render_thread_func(void* data) {
 	SDL_AtomicGet(&quit_now);
 	SDL_MemoryBarrierAcquire();
 
+	if (!app_this_thread_name_set("render")) {
+		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+		SEM_POST(sem_log_filename);
+		return EXIT_FAILURE;
+	}
+
+#ifndef STDOUT_LOG
 	if (!log_filename_set("log_render.txt")) {
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_log_filename);
 		return EXIT_FAILURE;
 	}
-	log_printf("Started render thread\n");
+	log_printf("Successfully set render thread's log filename (log_render.txt)\n");
+#endif
+
 	SEM_POST(sem_log_filename);
 
 	SEM_WAIT(sem_render_start);
 
+	log_printf("Getting window object for rendering\n");
 	SDL_Window* const window = app_window_get();
 	if (window == NULL) {
-		log_printf("Error getting window in render thread\n");
+		log_printf("Error getting window object for rendering\n");
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_init_game);
 		return EXIT_FAILURE;
 	}
+	log_printf("Successfully got window object for rendering\n");
 
+	log_printf("Getting OpenGL context for rendering\n");
 	opengl_context_object context = SDL_AtomicGetPtr((void**)&main_thread_opengl_context);
 	SDL_MemoryBarrierAcquire();
 	if (context == NULL) {
-		log_printf("Error getting OpenGL context in render thread\n");
+		log_printf("Error getting OpenGL context for rendering\n");
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_init_game);
 		return EXIT_FAILURE;
 	}
+	log_printf("Successfully got OpenGL context for rendering\n");
 
+	log_printf("Making an OpenGL context current for rendering\n");
 	if (!opengl_context_make_current(context)) {
-		log_printf("Error making an OpenGL context current in render thread\n");
+		log_printf("Error making an OpenGL context current for rendering\n");
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_init_game);
 		return EXIT_FAILURE;
 	}
+	log_printf("Successfully made an OpenGL context current for rendering\n");
 
+	log_printf("Setting the swap interval for OpenGL screen presents\n");
 	if (SDL_GL_SetSwapInterval(0) < 0) {
-		log_printf("Error setting swap interval in render thread\n");
+		log_printf("Error setting swap interval for OpenGL screen presents\n");
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_init_game);
 		return EXIT_FAILURE;
 	}
+	log_printf("Successfully set the swap interval for OpenGL screen presents\n");
 
+	log_printf("Creating the render frames object\n");
 	frames_object* const frames = frames_create();
 	if (frames == NULL) {
-		log_printf("Error creating frames object in render thread\n");
+		log_printf("Error creating render frames object\n");
 		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 		SEM_POST(sem_init_game);
 		return EXIT_FAILURE;
 	}
+	log_printf("Successfully created the render frames object\n");
 
 	if (!render_init(frames)) {
 		log_printf("Error initializing the render API\n");
@@ -482,6 +518,8 @@ static int SDLCALL render_thread_func(void* data) {
 	SDL_AtomicSetPtr((void**)&render_frames, frames);
 
 	SEM_POST(sem_init_game);
+
+	log_printf("Entering the render loop\n");
 
 	// The renderer only renders as often as the main thread requires, or less
 	// often if the main thread generates frames faster than the frame rate of
@@ -516,7 +554,7 @@ static int SDLCALL render_thread_func(void* data) {
 
 		const frames_status_type frames_status = frames_draw_latest(frames);
 		if (frames_status == FRAMES_STATUS_ERROR) {
-			log_printf("Error drawing latest frame in render thread\n");
+			log_printf("Error drawing latest frame\n");
 			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
 			exit_code = EXIT_FAILURE;
 			break;
@@ -553,6 +591,8 @@ static int SDLCALL render_thread_func(void* data) {
 		SDL_AtomicUnlock(&render_frame_rate_lock);
 	}
 
+	log_printf("Broke out of the render loop\n");
+
 	SEM_WAIT(sem_deinit_render);
 
 	frames_destroy(frames);
@@ -563,15 +603,17 @@ static int SDLCALL render_thread_func(void* data) {
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&main_thread_opengl_context, context);
 	if (exit_code == EXIT_SUCCESS) {
-		log_printf("Successfully shut down render thread\n");
+		log_printf("Successfully shut down the render thread\n");
 	}
 	else {
-		log_printf("Failed to validly shut down render thread\n");
+		log_printf("Failed to shut down the render thread\n");
 	}
 	return exit_code;
 }
 
 static bool render_thread_init() {
+	log_printf("Starting up the render thread\n");
+
 	assert(!render_thread_inited);
 
 	if (!sems_init()) {
@@ -580,6 +622,7 @@ static bool render_thread_init() {
 
 	opengl_context_object context = opengl_context_create();
 	if (context == NULL) {
+		log_printf("Error creating the render thread's OpenGL context\n");
 		return false;
 	}
 	SDL_MemoryBarrierRelease();
@@ -587,11 +630,13 @@ static bool render_thread_init() {
 
 	SEM_POST(sem_render_start);
 
+	log_printf("Creating the render thread\n");
 	render_thread = SDL_CreateThread(render_thread_func, "render_thread", NULL);
 	if (render_thread == NULL) {
 		log_printf("Error creating render thread: %s\n", SDL_GetError());
 		return false;
 	}
+	log_printf("Successfully created the render thread\n");
 
 	SEM_WAIT(sem_log_filename);
 	if (SDL_AtomicGet(&quit_now) == QUIT_FAILURE) {
@@ -602,11 +647,15 @@ static bool render_thread_init() {
 	}
 
 	render_thread_inited = true;
+	log_printf("Successfully started up the render thread\n");
+
 	return true;
 }
 
 static void render_thread_deinit() {
-	assert(render_thread_inited);
+	if(!render_thread_inited) {
+		return;
+	}
 
 	if (sems_inited && render_thread != NULL) {
 		SEM_POST(sem_deinit_render);
@@ -634,6 +683,8 @@ static void render_thread_deinit() {
 }
 
 static bool game_thread_init() {
+	log_printf("Initializing the game thread\n");
+
 	#ifndef NDEBUG
 	assert(!SDL_AtomicGet(&game_thread_inited));
 	SDL_MemoryBarrierAcquire();
@@ -656,6 +707,7 @@ static bool game_thread_init() {
 	SDL_AtomicGetPtr((void**)&render_frames);
 	SDL_MemoryBarrierAcquire();
 
+	log_printf("Initializing Lua scripting support\n");
 	// TODO: Implement Lua scripting support for game code. For now, this
 	// just tests that the Lua library is available and working.
 	lua_State* const lua_state = lua_newstate(mem_lua_alloc, NULL);
@@ -666,67 +718,142 @@ static bool game_thread_init() {
 		log_printf("Error setting up Lua scripting for the game\n");
 		return false;
 	}
+	log_printf("Successfully initialized Lua scripting support\n");
 
+	log_printf("Initializing the game API\n");
 	if (!game_init(&game_tick_duration)) {
 		log_printf("Error while initializing the game\n");
 		return false;
 	}
+	log_printf("Successfully initialized the game API\n");
 
 	nanotime_step_init(&main_stepper, game_tick_duration, nanotime_now_max(), nanotime_now, nanotime_sleep);
 
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSet(&game_thread_inited, 1);
+
+	log_printf("Successfully initialized the game thread\n");
+
 	return true;
 }
 
 bool app_init(const int argc, char** const argv) {
-	#ifndef NDEBUG
+	log_printf("Initializing the app\n");
+
 	const int current_all_inited = SDL_AtomicGet(&all_inited);
 	SDL_MemoryBarrierAcquire();
 	assert(!current_all_inited);
-	#endif
-	assert(SDL_ThreadID() == main_thread_id_get());
+	if (current_all_inited) {
+		log_printf("Erroneously attempted to call app_init while the app is not currently uninitialized\n");
+		goto fail;
+	}
+
+	const bool is_main_thread = this_thread_is_main_thread();
+	assert(is_main_thread);
+	if (!is_main_thread) {
+		log_printf("Erroneously attempted to call app_init in a non-main thread\n");
+		goto fail;
+	}
 
 	SDL_AtomicSet(&quit_now, QUIT_NOT);
 	SDL_MemoryBarrierRelease();
 
-	printf("Starting up\n");
-	fflush(stdout);
+	log_printf("Creating thread names TLS\n");
+	thread_names = SDL_TLSCreate();
+	assert(thread_names != 0);
+	if (thread_names == 0) {
+		log_printf("Error creating thread local storage for thread names\n");
+		goto fail;
+	}
+	log_printf("Successfully created thread names TLS\n");
 
-	if (!paths_init(argc, argv)) {
+	log_printf("Setting main thread's name\n");
+	{
+		const bool set = app_this_thread_name_set("main");
+		assert(set);
+		if (!set) {
+			log_printf("Error setting main thread's name\n");
+			goto fail;
+		}
+	}
+	log_printf("Successfully set main thread's name\n");
+
+	{
+		const bool inited = paths_init(argc, argv);
+		assert(inited);
+		if (!inited) {
+			goto fail;
+		}
+	}
+
+	log_printf("Initializing thread-safe log support\n");
+#ifdef STDOUT_LOG
+	{
+		const bool inited = log_init("stdout");
+		assert(inited);
+		if (!inited) {
+			log_printf("Failed initializing unified thread-safe logging to stdout\n");
+			goto fail;
+		}
+	}
+	log_printf("Successfully initialized log support\n");
+#else
+	{
+		const bool inited = log_init(NULL);
+		assert(inited);
+		if (!inited) {
+			log_printf("Failed initializing file-per-thread logging\n");
+			goto fail;
+		}
+	}
+	log_printf("Successfully initialized thread-safe log support\n");
+
+	log_printf("Setting log filename for the main thread (log_main.txt)\n");
+	{
+		const bool set = log_filename_set("log_main.txt");
+		assert(set);
+		if (!set) {
+			log_printf("Failed setting the log filename for the main thread\n");
+			goto fail;
+		}
+	}
+	log_printf("Successfully set log filename for the main thread (log_main.txt)\n");
+#endif
+
+	{
+		const bool inited = libs_init();
+		assert(inited);
+		if (!inited) {
+			goto fail;
+		}
+	}
+
+	audio_inited = audio_init();
+	assert(audio_inited);
+	if (!audio_inited) {
 		goto fail;
 	}
 
-	if (!log_init(NULL)) {
-		goto fail;
+	{
+		const bool inited = render_thread_init();
+		assert(inited);
+		if (!inited) {
+			goto fail;
+		}
 	}
 
-	if (!log_filename_set("log_main.txt")) {
-		goto fail;
-	}
-
-	if (!libs_init()) {
-		log_printf("Failed initializing app's libs\n");
-		goto fail;
-	}
-
-	if (!audio_init()) {
-		log_printf("Failed initializing audio\n");
-		goto fail;
-	}
-
-	if (!render_thread_init()) {
-		log_printf("Failed initializing render thread\n");
-		goto fail;
-	}
-
-	if (!game_thread_init()) {
-		log_printf("Failed initializing game thread\n");
+	{
+		const bool inited = game_thread_init();
+		assert(inited);
+		if (!inited) {
+			goto fail;
+		}
 	}
 
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSet(&all_inited, 1);
-	log_printf("Successfully initialized app\n");
+	log_printf("Successfully initialized the app\n");
+
 	return true;
 
 	fail:
@@ -735,36 +862,34 @@ bool app_init(const int argc, char** const argv) {
 }
 
 void app_deinit() {
-	assert(SDL_ThreadID() == main_thread_id_get());
+	assert(this_thread_is_main_thread());
 
-	log_printf("Starting app deinitialization\n");
+	render_thread_deinit();
 
-	SDL_MemoryBarrierRelease();
-	SDL_AtomicCAS(&quit_now, QUIT_NOT, QUIT_SUCCESS);
+	sems_deinit();
 
-	if (render_thread_inited) {
-		render_thread_deinit();
+	if (audio_inited) {
+		audio_deinit();
+		audio_inited = false;
 	}
 
-	if (sems_inited) {
-		sems_deinit();
-	}
+	paths_deinit();
 
-	audio_deinit();
-
-	if (paths_inited) {
-		paths_deinit();
+#ifdef STDOUT_LOG
+	if (!log_all_output_deinit()) {
+		printf("Error deinitializing the unified log output\n");
+		SDL_MemoryBarrierRelease();
+		SDL_AtomicCAS(&quit_now, QUIT_NOT, QUIT_FAILURE);
 	}
+#endif
 
-	if (libs_inited) {
-		libs_deinit();
-	}
+	libs_deinit();
 
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSet(&all_inited, 0);
 
-	printf("Shutting down\n");
-	fflush(stdout);
+	SDL_MemoryBarrierRelease();
+	SDL_AtomicCAS(&quit_now, QUIT_NOT, QUIT_SUCCESS);
 }
 
 bool app_inited() {
@@ -793,6 +918,54 @@ double app_render_frame_rate_get() {
 	const double frame_rate = render_frame_rate;
 	SDL_AtomicUnlock(&render_frame_rate_lock);
 	return frame_rate;
+}
+
+static void SDLCALL thread_name_destructor(void* name) {
+	mem_free(name);
+}
+
+bool app_this_thread_name_set(const char* const name) {
+	assert(thread_names != 0);
+
+	char* const old_name = SDL_TLSGet(thread_names);
+	if (old_name != NULL) {
+		mem_free(old_name);
+		const bool set = SDL_TLSSet(thread_names, NULL, NULL) >= 0;
+		assert(set);
+		if (!set) {
+			log_printf("Error unsetting the current thread's name: %s\n", SDL_GetError());
+			return false;
+		}
+	}
+
+	if (name == NULL) {
+		return true;
+	}
+
+	char* const tls_name = alloc_sprintf("%s", name);
+	assert(tls_name != NULL);
+	if (tls_name == NULL) {
+		log_printf("Error allocating string for setting %s thread's name\n", name);
+		return false;
+	}
+
+	{
+		const bool set = SDL_TLSSet(thread_names, tls_name, thread_name_destructor) >= 0;
+		assert(set);
+		if (!set) {
+			log_printf("Error setting %s thread's name: %s\n", name, SDL_GetError());
+			mem_free(tls_name);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+const char* const app_this_thread_name_get() {
+	assert(thread_names != 0);
+
+	return SDL_TLSGet(thread_names);
 }
 
 const char* app_resource_path_get() {
@@ -842,50 +1015,81 @@ quit_status_type app_update() {
 	SDL_MemoryBarrierAcquire();
 	assert(current_all_inited);
 	#endif
-	assert(SDL_ThreadID() == main_thread_id_get());
+	assert(this_thread_is_main_thread());
 
 	SDL_PumpEvents();
 	SDL_FilterEvents(event_filter, NULL);
 	SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
 	if (quit_app) {
-		log_printf("Quitting app due to user app quit request\n");
-		return QUIT_SUCCESS;
+		log_printf("Quitting app due to a program quit request\n");
+		SDL_AtomicSet(&quit_now, QUIT_SUCCESS);
+		goto quit;
+	}
+
+	{
+		const bool started = frames_start(render_frames);
+		assert(started);
+		if (!started) {
+			log_printf("Quitting due to a render-frame-start error\n");
+			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			goto quit;
+		}
 	}
 
 	bool quit_game = false;
-	if (!frames_start(render_frames)) {
-		log_printf("Quitting due to render-frame-start error\n");
-		return QUIT_FAILURE;
+	{
+		const bool updated = game_update(&quit_game, main_stepper.sleep_point);
+		assert(updated);
+		if (!updated) {
+			log_printf("Quitting due to a game update error\n");
+			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			goto quit;
+		}
 	}
 
-	if (!game_update(&quit_game, main_stepper.sleep_point)) {
-		log_printf("Quitting due to game update error\n");
-		return QUIT_FAILURE;
-	}
-
-	if (!frames_end(render_frames)) {
-		log_printf("Quitting due to render-frame-end error\n");
-		return QUIT_FAILURE;
+	{
+		const bool ended = frames_end(render_frames);
+		assert(ended);
+		if (!ended) {
+			log_printf("Quitting due to a render-frame-end error\n");
+			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			goto quit;
+		}
 	}
 
 	if (SDL_SemValue(sem_render_now) == 0) {
 		SDL_SemPost(sem_render_now);
 	}
 
+#ifdef STDOUT_LOG
+	{
+		const bool errored = main_stepper.accumulator < main_stepper.sleep_duration && !log_all_output_dequeue(main_stepper.sleep_duration - main_stepper.accumulator);
+		assert(!errored);
+		if (errored) {
+			printf("Quitting due to an error in outputting messages to the unified log output\n");
+			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			goto quit;
+		}
+	}
+#endif
+
 	if (quit_game) {
-		log_printf("Quitting due to in-game quit request\n");
-		return QUIT_SUCCESS;
+		log_printf("Quitting due to an in-game quit request\n");
+		SDL_AtomicSet(&quit_now, QUIT_SUCCESS);
+		goto quit;
 	}
 
 	if (!nanotime_step(&main_stepper)) {
 		SDL_AtomicSet(&render_stepper_init, 1);
-		// This function only runs in the main thread, so stdout access is
-		// allowed here, along with nonatomic static variables.
+		/*
+		 * This function only runs in the main thread, so static variables are
+		 * allowed.
+		 */
 		static uint64_t skips = 0u;
 		skips++;
-		printf("skips == %" PRIu64 "\n", skips);
-		fflush(stdout);
+		log_printf("Skipped %" PRIu64 " game tick sleeps so far\n", skips);
 	}
 
+	quit:
 	return (quit_status_type)SDL_AtomicGet(&quit_now);
 }

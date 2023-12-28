@@ -30,6 +30,7 @@
 #include "SDL.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 /*
  * Although it might be fine to directly pass SDL_GL_GetProcAddress to
@@ -47,7 +48,9 @@ bool opengl_init() {
 }
 
 opengl_context_object opengl_context_create() {
-	assert(SDL_ThreadID() == main_thread_id_get());
+	log_printf("Creating an OpenGL context\n");
+
+	assert(this_thread_is_main_thread());
 
 	SDL_Window* const current_window = app_window_get();
 	assert(current_window != NULL);
@@ -99,11 +102,13 @@ opengl_context_object opengl_context_create() {
 	}
 	SDL_GL_MakeCurrent(current_window, NULL);
 
+	log_printf("Successfully created an OpenGL context\n");
+
 	return glcontext;
 }
 
 void opengl_context_destroy(opengl_context_object const context) {
-	assert(SDL_ThreadID() == main_thread_id_get());
+	assert(this_thread_is_main_thread());
 	assert(context != NULL);
 
 	SDL_GL_DeleteContext(context);
@@ -196,11 +201,14 @@ GLuint opengl_program_create(const GLchar* const vertex_src, const GLchar* const
 	}
 }
 
-bool opengl_error(const char* const message) {
+bool opengl_error(const char* const format, ...) {
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR) {
-		if (message != NULL) {
-			fputs(message, stderr);
+		if (format != NULL) {
+			va_list args;
+			va_start(args, format);
+			log_vprintf(format, args);
+			va_end(args);
 		}
 
 		switch (error) {

@@ -25,6 +25,7 @@
 #include "main/main.h"
 #include "main/private/app_private.h"
 #include "util/private/mem_private.h"
+#include "util/private/log_private.h"
 #include "game/game.h"
 #include "SDL.h"
 #include <stdlib.h>
@@ -38,13 +39,28 @@ SDL_threadID main_thread_id_get() {
 	const int set = SDL_AtomicGet(&main_thread_id_set);
 	SDL_MemoryBarrierAcquire();
 	assert(set);
+	if (!set) {
+		abort();
+	}
 
 	return main_thread_id;
 }
 
+bool this_thread_is_main_thread() {
+	return SDL_ThreadID() == main_thread_id_get();
+}
+
 int main(int argc, char** argv) {
-	// From glancing at the SDL source code, it appears calling SDL_ThreadID
-	// before SDL_Init/after SDL_Quit is valid.
+	/*
+	 * From glancing at the SDL source code, it appears calling SDL_ThreadID,
+	 * SDL_MemoryBarrierRelease, SDL_AtomicSet, SDL_AtomicGet, and
+	 * SDL_MemoryBarrierAcquire before SDL_Init/after SDL_Quit is valid. And
+	 * such operations can't fail, so it's safe for them to execute first thing.
+	 *
+	 * Some of the code must only be executed in the main thread, so it's
+	 * critical that it be possible for all the code to check if it's being
+	 * executed in the main thread as early as possible.
+	 */
 	main_thread_id = SDL_ThreadID();
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSet(&main_thread_id_set, 1);
@@ -53,11 +69,20 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
-	if (!app_init(argc, argv)) {
+	log_printf("Started program\n");
+
+	/*
+	 * Because so much of the code depends on SDL, SDL_Init needs to be called
+	 * as early as possible.
+	 */
+	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) < 0) {
+		log_printf("Error: %s\n", SDL_GetError());
 		return EXIT_FAILURE;
 	}
 
-#define REALTIME
+	if (!app_init(argc, argv)) {
+		return EXIT_FAILURE;
+	}
 
 #ifdef REALTIME
 	SDL_SetHint(SDL_HINT_THREAD_FORCE_REALTIME_TIME_CRITICAL, "1");
@@ -78,17 +103,14 @@ int main(int argc, char** argv) {
 #endif
 
 	app_deinit();
+	log_printf("Shut down program\n");
+	SDL_Quit();
 
 	if (!mem_deinit()) {
 		quit_status = QUIT_FAILURE;
 	}
 
-	switch (quit_status) {
-	case QUIT_SUCCESS:
-		return EXIT_SUCCESS;
-
-	default:
-	case QUIT_FAILURE:
-		return EXIT_FAILURE;
-	}
+	return quit_status == QUIT_SUCCESS ?
+		EXIT_SUCCESS :
+		EXIT_FAILURE;
 }
