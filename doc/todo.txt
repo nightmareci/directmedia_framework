@@ -1,15 +1,31 @@
-Implement instance renderer; gives a full interface to do instanced rendering of
-an object (a single set of geometry). Provide some 3D support through the
-instance renderer. Refactor the sprite API to use instanced rendering of a quad
-object internally.
+Implement instance renderer; gives a full interface to do instanced rendering
+of an object (a single set of geometry). Provide some 3D support through the
+instance renderer. Refactor so all rendering is done through use of an instance
+type passed to the instance rendering API, rather than specialized APIs for
+specific object types.
 
-Support loading external Lua code for the game code, even not using any compiled-in game code
+Make as many of the APIs as possible accessed by game code handle errors
+themselves, not pushing that responsibility onto the game code. So, from the
+game code's perspective, such APIs would appear to be no-fail. The framework
+will still arrange for errors to be reported, though.
+
+Support loading external Lua code for the game code, even not using any
+compiled-in game code
+
 Set rendering resolution at runtime
+
 Render-screen-to-texture option with scaled output filter options
+
 Runtime switching between windowed and fullscreen
+
 Keyboard and game controller input
+
 Present sync options (vsync, etc.)
-Runtime/Lua setting of window title
-TTF font support (SDL_ttf, font.h => ttf.h, bmf.h)
-Drawing of single-color flat rectangles
+
+Runtime setting of window title
+
+TTF support (SDL_ttf, font.h => ttf.h, bmf.h)
+
+Drawing of flat-shaded geometry
+
 Input configuration even with the action set system
