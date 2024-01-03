@@ -23,7 +23,7 @@
  */
 
 #include "render/private/opengl.h"
-#include "main/private/app_private.h"
+#include "main/private/prog_private.h"
 #include "main/main.h"
 #include "util/log.h"
 #include "util/mem.h"
@@ -50,9 +50,9 @@ bool opengl_init() {
 opengl_context_object opengl_context_create() {
 	log_printf("Creating an OpenGL context\n");
 
-	assert(this_thread_is_main_thread());
+	assert(main_thread_is_this_thread());
 
-	SDL_Window* const current_window = app_window_get();
+	SDL_Window* const current_window = prog_window_get();
 	assert(current_window != NULL);
 
 	int context_major_version, context_minor_version, context_profile_mask;
@@ -108,14 +108,14 @@ opengl_context_object opengl_context_create() {
 }
 
 void opengl_context_destroy(opengl_context_object const context) {
-	assert(this_thread_is_main_thread());
+	assert(main_thread_is_this_thread());
 	assert(context != NULL);
 
 	SDL_GL_DeleteContext(context);
 }
 
 bool opengl_context_make_current(opengl_context_object const context) {
-	SDL_Window* const window = app_window_get();
+	SDL_Window* const window = prog_window_get();
 
 	if (SDL_GL_MakeCurrent(window, context) < 0) {
 		log_printf("Error making an OpenGL context current in render thread\n");

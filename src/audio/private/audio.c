@@ -1,5 +1,5 @@
 #include "audio/private/audio_private.h"
-#include "main/app.h"
+#include "main/prog.h"
 #include "data/data.h"
 #include "util/log.h"
 #include "SDL_thread.h"
@@ -42,7 +42,7 @@ bool audio_init() {
 	SDL_AtomicSet(&inited_thread_set, 1);
 #endif
 
-	data_cache = data_cache_create(app_resource_path_get(), app_save_path_get());
+	data_cache = data_cache_create(prog_resource_path_get(), prog_save_path_get());
 	if (data_cache == NULL) {
 		log_printf("Error creating data cache for audio\n");
 		return false;

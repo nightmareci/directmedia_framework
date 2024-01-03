@@ -27,7 +27,7 @@
 #include "render/private/layers.h"
 #include "render/private/print.h"
 #include "render/private/opengl.h"
-#include "main/app.h"
+#include "main/prog.h"
 #include "data/data.h"
 #include "util/log.h"
 #include "util/str.h"
@@ -49,7 +49,7 @@ bool render_init(frames_object* const frames) {
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_CULL_FACE);
 
-	data_cache = data_cache_create(app_resource_path_get(), app_save_path_get());
+	data_cache = data_cache_create(prog_resource_path_get(), prog_save_path_get());
 	if (data_cache == NULL) {
 		return false;
 	}
@@ -98,7 +98,7 @@ static bool render_start_update_func(void* const state) {
 	}
 
 	size_t render_width, render_height;
-	app_render_size_get(&render_width, &render_height);
+	prog_render_size_get(&render_width, &render_height);
 
 	if (layers == NULL) {
 		layers = layers_create(NUM_LAYERS);

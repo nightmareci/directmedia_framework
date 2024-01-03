@@ -27,17 +27,17 @@
 #include <stdbool.h>
 
 /*
- * Give the game a chance to initialize. tick_duration must be set to the
+ * Give the app a chance to initialize. tick_duration must be set to the
  * duration of game ticks. This function must not call any render functions.
  * Return true if initialization was successful, otherwise return false in the
  * case of fatal errors.
  */
-bool game_init(uint64_t* const tick_duration);
+bool app_init(uint64_t* const tick_duration);
 
 /*
- * Update the game for a tick. *quit must be set to true or false every tick.
- * Set *quit to true to tell the application to quit the game; set it to false
- * for the game to continue running. Return true if updating was successful,
- * otherwise return false in the case of fatal errors.
+ * Update the app for a tick. *quit must be set to true or false every tick. Set
+ * *quit to true to tell the program to quit the app; set it to false for the
+ * app to continue running. Return true if updating was successful, otherwise
+ * return false in the case of fatal errors.
  */
-bool game_update(bool* const quit, const uint64_t current_time);
+bool app_update(bool* const quit, const uint64_t current_time);

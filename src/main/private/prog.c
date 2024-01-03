@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "main/private/app_private.h"
+#include "main/private/prog_private.h"
 #include "audio/private/audio_private.h"
 #include "render/private/render_private.h"
 #include "render/private/opengl.h"
@@ -32,7 +32,7 @@
 #include "util/str.h"
 #include "util/log.h"
 #include "util/nanotime.h"
-#include "game/game.h"
+#include "app/app.h"
 #include "lua/lauxlib.h"
 #include "SDL.h"
 #include "SDL_mixer.h"
@@ -40,45 +40,45 @@
 #include <inttypes.h>
 #include <assert.h>
 
-static SDL_atomic_t quit_now = { QUIT_NOT };
+static SDL_atomic_t quit_status = { QUIT_NOT };
 
 static char* resource_path = NULL;
 static char* save_path = NULL;
 static bool paths_inited = false;
 
-static bool img_inited = false;
-static bool mix_inited = false;
-static bool window_inited = false;
-static bool audio_inited = false;
-static bool libs_inited = false;
+static bool img_inited_flag = false;
+static bool mix_inited_flag = false;
+static bool window_inited_flag = false;
+static bool audio_inited_flag = false;
+static bool libs_inited_flag = false;
 
-static SDL_atomic_t sync_threads = { 0 };
-static SDL_sem* sem_log_filename = NULL;
-static SDL_sem* sem_render_start = NULL;
-static SDL_sem* sem_init_game = NULL;
-static SDL_sem* sem_deinit_render = NULL;
-static SDL_sem* sem_render_now = NULL;
-static bool sems_inited = false;
+static SDL_atomic_t sync_threads_mem_barrier = { 0 };
+static SDL_sem* log_filename_sem = NULL;
+static SDL_sem* render_start_sem = NULL;
+static SDL_sem* init_app_sem = NULL;
+static SDL_sem* deinit_render_sem = NULL;
+static SDL_sem* render_now_sem = NULL;
+static bool sems_inited_flag = false;
 
 #define SEM_WAIT(sem) \
 do { \
 	SDL_SemWait((sem)); \
-	SDL_AtomicGet(&sync_threads); \
+	SDL_AtomicGet(&sync_threads_mem_barrier); \
 	SDL_MemoryBarrierAcquire(); \
 } while (false)
 
 #define SEM_POST(sem) \
 do { \
 	SDL_MemoryBarrierRelease(); \
-	SDL_AtomicSet(&sync_threads, 0); \
+	SDL_AtomicSet(&sync_threads_mem_barrier, 0); \
 	SDL_SemPost((sem)); \
 } while (false)
 
 static SDL_Thread* render_thread = NULL;
 static frames_object* render_frames = NULL;
 static bool render_thread_inited = false;
-static uint64_t game_tick_duration;
-static SDL_atomic_t game_thread_inited = { 0 };
+static uint64_t app_tick_duration;
+static SDL_atomic_t app_thread_inited = { 0 };
 static SDL_TLSID thread_names = 0;
 
 static SDL_Window* window = NULL;
@@ -92,14 +92,14 @@ static int render_height = 0;
  * thread to reinitialize its stepper object, to ensure correct render frame
  * pacing; this is used as a boolean shared variable to do such signalling.
  */
-static SDL_atomic_t render_stepper_init = { 0 };
+static SDL_atomic_t render_stepper_init_flag = { 0 };
 
 static SDL_SpinLock render_frame_rate_lock;
 static double render_frame_rate = -1.0;
 
 static nanotime_step_data main_stepper;
 
-static SDL_atomic_t all_inited = { 0 };
+static SDL_atomic_t prog_inited_flag = { 0 };
 
 /*
  * Some platforms don't work properly when attempting to create an OpenGL
@@ -125,7 +125,7 @@ static SDL_atomic_t all_inited = { 0 };
  *
  * 5. Once some thread indicates it's quitting time, the render thread breaks
  * out of its dequeue-and-render loop, waiting for the main thread to wake it up
- * after the main thread has also broken out of its game_update loop and is no
+ * after the main thread has also broken out of its app_update loop and is no
  * longer enqueueing frame objects.
  *
  * 6. To guarantee the render thread exits when it's quitting time, the main
@@ -180,7 +180,7 @@ static bool paths_init(const int argc, char** const argv) {
 			#endif
 		)), resource_path == NULL) {
 			log_printf("Error creating resource path string\n");
-			app_deinit();
+			prog_deinit();
 			return false;
 		}
 	}
@@ -189,7 +189,7 @@ static bool paths_init(const int argc, char** const argv) {
 
 		if ((temp_string = SDL_GetBasePath()) == NULL) {
 			log_printf("Error getting SDL base path string: %s\n", SDL_GetError());
-			app_deinit();
+			prog_deinit();
 			return false;
 		}
 		SDL_MemoryBarrierRelease();
@@ -202,7 +202,7 @@ static bool paths_init(const int argc, char** const argv) {
 		)), resource_path == NULL) {
 			log_printf("Error creating resource path string\n");
 			SDL_free(temp_string);
-			app_deinit();
+			prog_deinit();
 			return false;
 		}
 		SDL_free(temp_string);
@@ -220,7 +220,7 @@ static bool paths_init(const int argc, char** const argv) {
 			#endif
 		)), save_path == NULL) {
 			log_printf("Error creating save path string\n");
-			app_deinit();
+			prog_deinit();
 			return false;
 		}
 	}
@@ -230,20 +230,20 @@ static bool paths_init(const int argc, char** const argv) {
 		if (portable_app) {
 			if ((temp_string = SDL_GetBasePath()) == NULL) {
 				log_printf("Error getting SDL base path string: %s\n", SDL_GetError());
-				app_deinit();
+				prog_deinit();
 				return false;
 			}
 		}
 		else if ((temp_string = SDL_GetPrefPath(app_organization, app_executable)) == NULL) {
 			log_printf("Error getting SDL pref path string: %s\n", SDL_GetError());
-			app_deinit();
+			prog_deinit();
 			return false;
 		}
 		SDL_MemoryBarrierRelease();
 		if (SDL_AtomicSetPtr((void**)&save_path, alloc_sprintf("%s", temp_string)), save_path == NULL) {
 			log_printf("Error creating the save path string\n");
 			SDL_free(temp_string);
-			app_deinit();
+			prog_deinit();
 			return false;
 		}
 		SDL_free(temp_string);
@@ -293,7 +293,7 @@ static bool libs_init() {
 		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8) < 0
 	) {
 		log_printf("Error: %s\n", SDL_GetError());
-		app_deinit();
+		prog_deinit();
 		return false;
 	}
 
@@ -301,10 +301,10 @@ static bool libs_init() {
 	SDL_AtomicSetPtr((void**)&window, SDL_CreateWindow(app_title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL));
 	if (SDL_AtomicGetPtr((void**)&window) == NULL) {
 		log_printf("Error: %s\n", SDL_GetError());
-		app_deinit();
+		prog_deinit();
 		return false;
 	}
-	window_inited = true;
+	window_inited_flag = true;
 	SDL_AtomicLock(&render_size_lock);
 	render_width = 640;
 	render_height = 480;
@@ -312,108 +312,108 @@ static bool libs_init() {
 
 	if (Mix_Init(MIX_INIT_OGG | MIX_INIT_MP3 | MIX_INIT_MOD) != (MIX_INIT_OGG | MIX_INIT_MP3 | MIX_INIT_MOD)) {
 		log_printf("Error: %s\n", Mix_GetError());
-		app_deinit();
+		prog_deinit();
 		return false;
 	}
-	mix_inited = true;
+	mix_inited_flag = true;
 
 	if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
 		log_printf("Error: %s\n", IMG_GetError());
-		app_deinit();
+		prog_deinit();
 		return false;
 	}
-	img_inited = true;
+	img_inited_flag = true;
 
-	libs_inited = true;
+	libs_inited_flag = true;
 	log_printf("Successfully initialized libraries\n");
 
 	return true;
 }
 
 static void libs_deinit() {
-	if (!libs_inited) {
+	if (!libs_inited_flag) {
 		return;
 	}
 
-	if (img_inited) {
+	if (img_inited_flag) {
 		IMG_Quit();
 	}
-	if (mix_inited) {
+	if (mix_inited_flag) {
 		Mix_Quit();
 	}
-	if (window_inited) {
+	if (window_inited_flag) {
 		SDL_DestroyWindow(window);
 	}
 
-	img_inited = false;
-	mix_inited = false;
+	img_inited_flag = false;
+	mix_inited_flag = false;
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&window, NULL);
 
-	libs_inited = false;
+	libs_inited_flag = false;
 }
 
 static bool sems_init() {
-	log_printf("Initializing app semaphores\n");
+	log_printf("Initializing program semaphores\n");
 
-	sem_log_filename = SDL_CreateSemaphore(0u);
-	if (sem_log_filename == NULL) {
+	log_filename_sem = SDL_CreateSemaphore(0u);
+	if (log_filename_sem == NULL) {
 		log_printf("Error creating semaphore for communicating errors from the render thread to the main thread: %s\n", SDL_GetError());
 		return false;
 	}
 
-	sem_render_start = SDL_CreateSemaphore(0u);
-	if (sem_render_start == NULL) {
+	render_start_sem = SDL_CreateSemaphore(0u);
+	if (render_start_sem == NULL) {
 		log_printf("Error creating semaphore for halting the render thread upon start: %s\n", SDL_GetError());
 		return false;
 	}
 
-	sem_init_game = SDL_CreateSemaphore(0u);
-	if (sem_init_game == NULL) {
-		log_printf("Error creating semaphore for halting the game thread before render_init: %s\n", SDL_GetError());
+	init_app_sem = SDL_CreateSemaphore(0u);
+	if (init_app_sem == NULL) {
+		log_printf("Error creating semaphore for halting the app thread before render_init: %s\n", SDL_GetError());
 		return false;
 	}
 
-	sem_deinit_render = SDL_CreateSemaphore(0u);
-	if (sem_deinit_render == NULL) {
+	deinit_render_sem = SDL_CreateSemaphore(0u);
+	if (deinit_render_sem == NULL) {
 		log_printf("Error creating semaphore for halting the render thread before render_deinit: %s\n", SDL_GetError());
 		return false;
 	}
 
-	sem_render_now = SDL_CreateSemaphore(0u);
-	if (sem_render_now == NULL) {
+	render_now_sem = SDL_CreateSemaphore(0u);
+	if (render_now_sem == NULL) {
 		log_printf("Error creating semaphore for waking the render thread to render frames: %s\n", SDL_GetError());
 		return false;
 	}
 
-	sems_inited = true;
-	log_printf("Successfully initialized app semaphores\n");
+	sems_inited_flag = true;
+	log_printf("Successfully initialized program semaphores\n");
 
 	return true;
 }
 
 static void sems_deinit() {
-	if (!sems_inited) {
+	if (!sems_inited_flag) {
 		return;
 	}
 
-	if (sem_render_now != NULL) SDL_DestroySemaphore(sem_render_now);
-	if (sem_deinit_render != NULL) SDL_DestroySemaphore(sem_deinit_render);
-	if (sem_init_game != NULL) SDL_DestroySemaphore(sem_init_game);
-	if (sem_render_start != NULL) SDL_DestroySemaphore(sem_render_start);
-	if (sem_log_filename != NULL) SDL_DestroySemaphore(sem_log_filename);
+	if (render_now_sem != NULL) SDL_DestroySemaphore(render_now_sem);
+	if (deinit_render_sem != NULL) SDL_DestroySemaphore(deinit_render_sem);
+	if (init_app_sem != NULL) SDL_DestroySemaphore(init_app_sem);
+	if (render_start_sem != NULL) SDL_DestroySemaphore(render_start_sem);
+	if (log_filename_sem != NULL) SDL_DestroySemaphore(log_filename_sem);
 
-	sem_log_filename = NULL;
-	sem_render_start = NULL;
-	sem_init_game = NULL;
-	sem_deinit_render = NULL;
-	sem_render_now = NULL;
+	log_filename_sem = NULL;
+	render_start_sem = NULL;
+	init_app_sem = NULL;
+	deinit_render_sem = NULL;
+	render_now_sem = NULL;
 
-	sems_inited = false;
+	sems_inited_flag = false;
 }
 
 static uint64_t frame_duration_get() {
-	SDL_Window* const window = app_window_get();
+	SDL_Window* const window = prog_window_get();
 	const int display_index = SDL_GetWindowDisplayIndex(window);
 	if (display_index < 0) {
 		log_printf("Error: %s\n", SDL_GetError());
@@ -435,12 +435,12 @@ static uint64_t frame_duration_get() {
 static int SDLCALL render_thread_func(void* data) {
 	// Ensure quit_now in this thread is at the oldest the first value written
 	// in the main thread.
-	SDL_AtomicGet(&quit_now);
+	SDL_AtomicGet(&quit_status);
 	SDL_MemoryBarrierAcquire();
 
-	if (!app_this_thread_name_set("render")) {
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
-		SEM_POST(sem_log_filename);
+	if (!prog_this_thread_name_set("render")) {
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
+		SEM_POST(log_filename_sem);
 		return EXIT_FAILURE;
 	}
 
@@ -453,16 +453,16 @@ static int SDLCALL render_thread_func(void* data) {
 	log_printf("Successfully set render thread's log filename (log_render.txt)\n");
 #endif
 
-	SEM_POST(sem_log_filename);
+	SEM_POST(log_filename_sem);
 
-	SEM_WAIT(sem_render_start);
+	SEM_WAIT(render_start_sem);
 
 	log_printf("Getting window object for rendering\n");
-	SDL_Window* const window = app_window_get();
+	SDL_Window* const window = prog_window_get();
 	if (window == NULL) {
 		log_printf("Error getting window object for rendering\n");
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
-		SEM_POST(sem_init_game);
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
+		SEM_POST(init_app_sem);
 		return EXIT_FAILURE;
 	}
 	log_printf("Successfully got window object for rendering\n");
@@ -472,8 +472,8 @@ static int SDLCALL render_thread_func(void* data) {
 	SDL_MemoryBarrierAcquire();
 	if (context == NULL) {
 		log_printf("Error getting OpenGL context for rendering\n");
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
-		SEM_POST(sem_init_game);
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
+		SEM_POST(init_app_sem);
 		return EXIT_FAILURE;
 	}
 	log_printf("Successfully got OpenGL context for rendering\n");
@@ -481,8 +481,8 @@ static int SDLCALL render_thread_func(void* data) {
 	log_printf("Making an OpenGL context current for rendering\n");
 	if (!opengl_context_make_current(context)) {
 		log_printf("Error making an OpenGL context current for rendering\n");
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
-		SEM_POST(sem_init_game);
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
+		SEM_POST(init_app_sem);
 		return EXIT_FAILURE;
 	}
 	log_printf("Successfully made an OpenGL context current for rendering\n");
@@ -490,8 +490,8 @@ static int SDLCALL render_thread_func(void* data) {
 	log_printf("Setting the swap interval for OpenGL screen presents\n");
 	if (SDL_GL_SetSwapInterval(0) < 0) {
 		log_printf("Error setting swap interval for OpenGL screen presents\n");
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
-		SEM_POST(sem_init_game);
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
+		SEM_POST(init_app_sem);
 		return EXIT_FAILURE;
 	}
 	log_printf("Successfully set the swap interval for OpenGL screen presents\n");
@@ -500,24 +500,24 @@ static int SDLCALL render_thread_func(void* data) {
 	frames_object* const frames = frames_create();
 	if (frames == NULL) {
 		log_printf("Error creating render frames object\n");
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
-		SEM_POST(sem_init_game);
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
+		SEM_POST(init_app_sem);
 		return EXIT_FAILURE;
 	}
 	log_printf("Successfully created the render frames object\n");
 
 	if (!render_init(frames)) {
 		log_printf("Error initializing the render API\n");
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
 		frames_destroy(frames);
-		SEM_POST(sem_init_game);
+		SEM_POST(init_app_sem);
 		return EXIT_FAILURE;
 	}
 
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&render_frames, frames);
 
-	SEM_POST(sem_init_game);
+	SEM_POST(init_app_sem);
 
 	log_printf("Entering the render loop\n");
 
@@ -529,7 +529,7 @@ static int SDLCALL render_thread_func(void* data) {
 	// post.
 
 	// TODO: Investigate which of post/wait or always-loop produces the lowest
-	// latency. Though if post/wait better ensures every game tick gets rendered
+	// latency. Though if post/wait better ensures every app tick gets rendered
 	// one-after-the-other, with none missed, when tick rate and frame rate
 	// match at 60 Hz, then maybe consider offering both options.
 
@@ -541,29 +541,29 @@ static int SDLCALL render_thread_func(void* data) {
 	bool skipped = false;
 	frames_status_type last_status = FRAMES_STATUS_NO_PRESENT;
 	while (true) {
-		if (SDL_SemWait(sem_render_now) < 0) {
+		if (SDL_SemWait(render_now_sem) < 0) {
 			log_printf("Error waiting to render in the render thread: %s\n", SDL_GetError());
-			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			SDL_AtomicSet(&quit_status, QUIT_FAILURE);
 			exit_code = EXIT_FAILURE;
 			break;
 		}
 
-		if (SDL_AtomicGet(&quit_now) != QUIT_NOT) {
+		if (SDL_AtomicGet(&quit_status) != QUIT_NOT) {
 			break;
 		}
 
 		const frames_status_type frames_status = frames_draw_latest(frames);
 		if (frames_status == FRAMES_STATUS_ERROR) {
 			log_printf("Error drawing latest frame\n");
-			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			SDL_AtomicSet(&quit_status, QUIT_FAILURE);
 			exit_code = EXIT_FAILURE;
 			break;
 		}
 
 		const uint64_t frame_duration = frame_duration_get();
 		uint64_t max_duration;
-		if (SDL_AtomicGet(&game_thread_inited) && game_tick_duration > frame_duration) {
-			max_duration = game_tick_duration;
+		if (SDL_AtomicGet(&app_thread_inited) && app_tick_duration > frame_duration) {
+			max_duration = app_tick_duration;
 		}
 		else {
 			max_duration = frame_duration;
@@ -572,12 +572,12 @@ static int SDLCALL render_thread_func(void* data) {
 		// We don't need to use the skipping feature of nanotime_step, so we
 		// just reinitialize the stepper object upon skips. The goal is to pace
 		// out all renders, we don't need to maintain correct timing of render
-		// frames by skipping sleep steps, as is desired of game ticks.
+		// frames by skipping sleep steps, as is desired of app ticks.
 		//
 		// However, we *do* want to take advantage of the accumulator
 		// accounting in nanotime_step, so we don't want to always reinitialize
 		// the stepper, which resets the accumulator to zero.
-		if (skipped || stepper.sleep_duration != max_duration || last_status != FRAMES_STATUS_PRESENT || SDL_AtomicCAS(&render_stepper_init, 1, 0)) {
+		if (skipped || stepper.sleep_duration != max_duration || last_status != FRAMES_STATUS_PRESENT || SDL_AtomicCAS(&render_stepper_init_flag, 1, 0)) {
 			nanotime_step_init(&stepper, max_duration, now_max, nanotime_now, nanotime_sleep);
 		}
 		last_status = frames_status;
@@ -593,7 +593,7 @@ static int SDLCALL render_thread_func(void* data) {
 
 	log_printf("Broke out of the render loop\n");
 
-	SEM_WAIT(sem_deinit_render);
+	SEM_WAIT(deinit_render_sem);
 
 	frames_destroy(frames);
 	SDL_MemoryBarrierRelease();
@@ -628,7 +628,7 @@ static bool render_thread_init() {
 	SDL_MemoryBarrierRelease();
 	SDL_AtomicSetPtr((void**)&main_thread_opengl_context, context);
 
-	SEM_POST(sem_render_start);
+	SEM_POST(render_start_sem);
 
 	log_printf("Creating the render thread\n");
 	render_thread = SDL_CreateThread(render_thread_func, "render_thread", NULL);
@@ -638,8 +638,8 @@ static bool render_thread_init() {
 	}
 	log_printf("Successfully created the render thread\n");
 
-	SEM_WAIT(sem_log_filename);
-	if (SDL_AtomicGet(&quit_now) == QUIT_FAILURE) {
+	SEM_WAIT(log_filename_sem);
+	if (SDL_AtomicGet(&quit_status) == QUIT_FAILURE) {
 		log_printf("Error setting log filename in render thread\n");
 		SDL_WaitThread(render_thread, NULL);
 		render_thread = NULL;
@@ -657,10 +657,10 @@ static void render_thread_deinit() {
 		return;
 	}
 
-	if (sems_inited && render_thread != NULL) {
-		SEM_POST(sem_deinit_render);
+	if (sems_inited_flag && render_thread != NULL) {
+		SEM_POST(deinit_render_sem);
 
-		if (SDL_SemPost(sem_render_now) < 0) {
+		if (SDL_SemPost(render_now_sem) < 0) {
 			log_printf("Error posting the render thread while deinitializing the renderer: %s\n", SDL_GetError());
 			abort();
 		}
@@ -682,19 +682,19 @@ static void render_thread_deinit() {
 	render_thread_inited = false;
 }
 
-static bool game_thread_init() {
-	log_printf("Initializing the game thread\n");
+static bool app_thread_init() {
+	log_printf("Initializing the app thread\n");
 
 	#ifndef NDEBUG
-	assert(!SDL_AtomicGet(&game_thread_inited));
+	assert(!SDL_AtomicGet(&app_thread_inited));
 	SDL_MemoryBarrierAcquire();
 	#endif
 
-	SEM_WAIT(sem_init_game);
-	if (SDL_AtomicGet(&quit_now) == QUIT_FAILURE) {
-		log_printf("Error initializing render thread before starting the game\n");
-		if (SDL_SemPost(sem_render_now) < 0) {
-			log_printf("Error posting the render thread to render a frame while initializing the game: %s\n", SDL_GetError());
+	SEM_WAIT(init_app_sem);
+	if (SDL_AtomicGet(&quit_status) == QUIT_FAILURE) {
+		log_printf("Error initializing render thread before starting the app\n");
+		if (SDL_SemPost(render_now_sem) < 0) {
+			log_printf("Error posting the render thread to render a frame while initializing the app: %s\n", SDL_GetError());
 			return false;
 		}
 		SDL_WaitThread(render_thread, NULL);
@@ -703,59 +703,59 @@ static bool game_thread_init() {
 	}
 
 	// NOTE: This ensures that render_frames is valid to read nonatomically in
-	// app_update.
+	// prog_update.
 	SDL_AtomicGetPtr((void**)&render_frames);
 	SDL_MemoryBarrierAcquire();
 
 	log_printf("Initializing Lua scripting support\n");
-	// TODO: Implement Lua scripting support for game code. For now, this
-	// just tests that the Lua library is available and working.
+	// TODO: Implement Lua scripting support for app code. For now, this just
+	// tests that the Lua library is available and working.
 	lua_State* const lua_state = lua_newstate(mem_lua_alloc, NULL);
 	if (lua_state != NULL) {
 		lua_close(lua_state);
 	}
 	else {
-		log_printf("Error setting up Lua scripting for the game\n");
+		log_printf("Error setting up Lua scripting for the app\n");
 		return false;
 	}
 	log_printf("Successfully initialized Lua scripting support\n");
 
-	log_printf("Initializing the game API\n");
-	if (!game_init(&game_tick_duration)) {
-		log_printf("Error while initializing the game\n");
+	log_printf("Initializing the app API\n");
+	if (!app_init(&app_tick_duration)) {
+		log_printf("Error while initializing the app\n");
 		return false;
 	}
-	log_printf("Successfully initialized the game API\n");
+	log_printf("Successfully initialized the app API\n");
 
-	nanotime_step_init(&main_stepper, game_tick_duration, nanotime_now_max(), nanotime_now, nanotime_sleep);
+	nanotime_step_init(&main_stepper, app_tick_duration, nanotime_now_max(), nanotime_now, nanotime_sleep);
 
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSet(&game_thread_inited, 1);
+	SDL_AtomicSet(&app_thread_inited, 1);
 
-	log_printf("Successfully initialized the game thread\n");
+	log_printf("Successfully initialized the app thread\n");
 
 	return true;
 }
 
-bool app_init(const int argc, char** const argv) {
-	log_printf("Initializing the app\n");
+bool prog_init(const int argc, char** const argv) {
+	log_printf("Initializing the program\n");
 
-	const int current_all_inited = SDL_AtomicGet(&all_inited);
+	const int current_all_inited = SDL_AtomicGet(&prog_inited_flag);
 	SDL_MemoryBarrierAcquire();
 	assert(!current_all_inited);
 	if (current_all_inited) {
-		log_printf("Erroneously attempted to call app_init while the app is not currently uninitialized\n");
+		log_printf("Erroneously attempted to call prog_init while the program is not currently uninitialized\n");
 		goto fail;
 	}
 
-	const bool is_main_thread = this_thread_is_main_thread();
+	const bool is_main_thread = main_thread_is_this_thread();
 	assert(is_main_thread);
 	if (!is_main_thread) {
-		log_printf("Erroneously attempted to call app_init in a non-main thread\n");
+		log_printf("Erroneously attempted to call prog_init in a non-main thread\n");
 		goto fail;
 	}
 
-	SDL_AtomicSet(&quit_now, QUIT_NOT);
+	SDL_AtomicSet(&quit_status, QUIT_NOT);
 	SDL_MemoryBarrierRelease();
 
 	log_printf("Creating thread names TLS\n");
@@ -769,7 +769,7 @@ bool app_init(const int argc, char** const argv) {
 
 	log_printf("Setting main thread's name\n");
 	{
-		const bool set = app_this_thread_name_set("main");
+		const bool set = prog_this_thread_name_set("main");
 		assert(set);
 		if (!set) {
 			log_printf("Error setting main thread's name\n");
@@ -828,9 +828,9 @@ bool app_init(const int argc, char** const argv) {
 		}
 	}
 
-	audio_inited = audio_init();
-	assert(audio_inited);
-	if (!audio_inited) {
+	audio_inited_flag = audio_init();
+	assert(audio_inited_flag);
+	if (!audio_inited_flag) {
 		goto fail;
 	}
 
@@ -843,7 +843,7 @@ bool app_init(const int argc, char** const argv) {
 	}
 
 	{
-		const bool inited = game_thread_init();
+		const bool inited = app_thread_init();
 		assert(inited);
 		if (!inited) {
 			goto fail;
@@ -851,26 +851,26 @@ bool app_init(const int argc, char** const argv) {
 	}
 
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSet(&all_inited, 1);
-	log_printf("Successfully initialized the app\n");
+	SDL_AtomicSet(&prog_inited_flag, 1);
+	log_printf("Successfully initialized the program\n");
 
 	return true;
 
 	fail:
-	app_deinit();
+	prog_deinit();
 	return false;
 }
 
-void app_deinit() {
-	assert(this_thread_is_main_thread());
+void prog_deinit() {
+	assert(main_thread_is_this_thread());
 
 	render_thread_deinit();
 
 	sems_deinit();
 
-	if (audio_inited) {
+	if (audio_inited_flag) {
 		audio_deinit();
-		audio_inited = false;
+		audio_inited_flag = false;
 	}
 
 	paths_deinit();
@@ -879,41 +879,41 @@ void app_deinit() {
 	if (!log_all_output_deinit()) {
 		printf("Error deinitializing the unified log output\n");
 		SDL_MemoryBarrierRelease();
-		SDL_AtomicCAS(&quit_now, QUIT_NOT, QUIT_FAILURE);
+		SDL_AtomicCAS(&quit_status, QUIT_NOT, QUIT_FAILURE);
 	}
 #endif
 
 	libs_deinit();
 
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicSet(&all_inited, 0);
+	SDL_AtomicSet(&prog_inited_flag, 0);
 
 	SDL_MemoryBarrierRelease();
-	SDL_AtomicCAS(&quit_now, QUIT_NOT, QUIT_SUCCESS);
+	SDL_AtomicCAS(&quit_status, QUIT_NOT, QUIT_SUCCESS);
 }
 
-bool app_inited() {
-	const int current_all_inited = SDL_AtomicGet(&all_inited);
+bool prog_inited() {
+	const int current_prog_inited_flag = SDL_AtomicGet(&prog_inited_flag);
 	SDL_MemoryBarrierAcquire();
 
-	return !!current_all_inited;
+	return !!current_prog_inited_flag;
 }
 
-SDL_Window* app_window_get() {
+SDL_Window* prog_window_get() {
 	SDL_Window* const current_window = SDL_AtomicGetPtr((void**)&window);
 	SDL_MemoryBarrierAcquire();
 
 	return current_window;
 }
 
-void app_render_size_get(size_t* const width, size_t* const height) {
+void prog_render_size_get(size_t* const width, size_t* const height) {
 	SDL_AtomicLock(&render_size_lock);
 	*width = render_width;
 	*height = render_height;
 	SDL_AtomicUnlock(&render_size_lock);;
 }
 
-double app_render_frame_rate_get() {
+double prog_render_frame_rate_get() {
 	SDL_AtomicLock(&render_frame_rate_lock);
 	const double frame_rate = render_frame_rate;
 	SDL_AtomicUnlock(&render_frame_rate_lock);
@@ -924,7 +924,7 @@ static void SDLCALL thread_name_destructor(void* name) {
 	mem_free(name);
 }
 
-bool app_this_thread_name_set(const char* const name) {
+bool prog_this_thread_name_set(const char* const name) {
 	assert(thread_names != 0);
 
 	char* const old_name = SDL_TLSGet(thread_names);
@@ -962,30 +962,30 @@ bool app_this_thread_name_set(const char* const name) {
 	return true;
 }
 
-const char* const app_this_thread_name_get() {
+const char* const prog_this_thread_name_get() {
 	assert(thread_names != 0);
 
 	return SDL_TLSGet(thread_names);
 }
 
-const char* app_resource_path_get() {
+const char* prog_resource_path_get() {
 	const char* const current_resource_path = SDL_AtomicGetPtr((void**)&resource_path);
 	SDL_MemoryBarrierAcquire();
 	return current_resource_path;
 }
 
-const char* app_save_path_get() {
+const char* prog_save_path_get() {
 	const char* const current_save_path = SDL_AtomicGetPtr((void**)&save_path);
 	SDL_MemoryBarrierAcquire();
 	return current_save_path;
 }
 
-static bool quit_app = false;
+static bool quit_prog = false;
 
 static int SDLCALL event_filter(void* userdata, SDL_Event* event) {
 	switch (event->type) {
 	case SDL_WINDOWEVENT:
-		SDL_AtomicSet(&render_stepper_init, 1);
+		SDL_AtomicSet(&render_stepper_init_flag, 1);
 		switch (event->window.event) {
 		case SDL_WINDOWEVENT_SIZE_CHANGED:
 			SDL_AtomicLock(&render_size_lock);
@@ -1000,7 +1000,7 @@ static int SDLCALL event_filter(void* userdata, SDL_Event* event) {
 		break;
 
 	case SDL_QUIT:
-		quit_app = true;
+		quit_prog = true;
 		break;
 
 	default:
@@ -1009,20 +1009,20 @@ static int SDLCALL event_filter(void* userdata, SDL_Event* event) {
 	return 1;
 }
 
-quit_status_type app_update() {
+quit_status_type prog_update() {
 	#ifndef NDEBUG
-	const int current_all_inited = SDL_AtomicGet(&all_inited);
+	const int prog_inited = SDL_AtomicGet(&prog_inited_flag);
 	SDL_MemoryBarrierAcquire();
-	assert(current_all_inited);
+	assert(prog_inited);
 	#endif
-	assert(this_thread_is_main_thread());
+	assert(main_thread_is_this_thread());
 
 	SDL_PumpEvents();
 	SDL_FilterEvents(event_filter, NULL);
 	SDL_FlushEvents(SDL_FIRSTEVENT, SDL_LASTEVENT);
-	if (quit_app) {
-		log_printf("Quitting app due to a program quit request\n");
-		SDL_AtomicSet(&quit_now, QUIT_SUCCESS);
+	if (quit_prog) {
+		log_printf("Quitting program due to a program quit request\n");
+		SDL_AtomicSet(&quit_status, QUIT_SUCCESS);
 		goto quit;
 	}
 
@@ -1031,18 +1031,18 @@ quit_status_type app_update() {
 		assert(started);
 		if (!started) {
 			log_printf("Quitting due to a render-frame-start error\n");
-			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			SDL_AtomicSet(&quit_status, QUIT_FAILURE);
 			goto quit;
 		}
 	}
 
-	bool quit_game = false;
+	bool quit_app = false;
 	{
-		const bool updated = game_update(&quit_game, main_stepper.sleep_point);
+		const bool updated = app_update(&quit_app, main_stepper.sleep_point);
 		assert(updated);
 		if (!updated) {
-			log_printf("Quitting due to a game update error\n");
-			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			log_printf("Quitting due to an app update error\n");
+			SDL_AtomicSet(&quit_status, QUIT_FAILURE);
 			goto quit;
 		}
 	}
@@ -1052,13 +1052,13 @@ quit_status_type app_update() {
 		assert(ended);
 		if (!ended) {
 			log_printf("Quitting due to a render-frame-end error\n");
-			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			SDL_AtomicSet(&quit_status, QUIT_FAILURE);
 			goto quit;
 		}
 	}
 
-	if (SDL_SemValue(sem_render_now) == 0) {
-		SDL_SemPost(sem_render_now);
+	if (SDL_SemValue(render_now_sem) == 0) {
+		SDL_SemPost(render_now_sem);
 	}
 
 #ifdef STDOUT_LOG
@@ -1067,29 +1067,29 @@ quit_status_type app_update() {
 		assert(!errored);
 		if (errored) {
 			printf("Quitting due to an error in outputting messages to the unified log output\n");
-			SDL_AtomicSet(&quit_now, QUIT_FAILURE);
+			SDL_AtomicSet(&quit_status, QUIT_FAILURE);
 			goto quit;
 		}
 	}
 #endif
 
-	if (quit_game) {
-		log_printf("Quitting due to an in-game quit request\n");
-		SDL_AtomicSet(&quit_now, QUIT_SUCCESS);
+	if (quit_app) {
+		log_printf("Quitting due to an in-app quit request\n");
+		SDL_AtomicSet(&quit_status, QUIT_SUCCESS);
 		goto quit;
 	}
 
 	if (!nanotime_step(&main_stepper)) {
-		SDL_AtomicSet(&render_stepper_init, 1);
+		SDL_AtomicSet(&render_stepper_init_flag, 1);
 		/*
 		 * This function only runs in the main thread, so static variables are
 		 * allowed.
 		 */
 		static uint64_t skips = 0u;
 		skips++;
-		log_printf("Skipped %" PRIu64 " game tick sleeps so far\n", skips);
+		log_printf("Skipped %" PRIu64 " app tick sleeps so far\n", skips);
 	}
 
 	quit:
-	return (quit_status_type)SDL_AtomicGet(&quit_now);
+	return (quit_status_type)SDL_AtomicGet(&quit_status);
 }

@@ -24,7 +24,7 @@
 
 #include "render/private/frames.h"
 #include "render/private/opengl.h"
-#include "main/private/app_private.h"
+#include "main/private/prog_private.h"
 #include "util/private/conqueue.h"
 #include "util/log.h"
 #include "util/queue.h"
@@ -167,7 +167,7 @@ frames_status_type frames_draw_latest(frames_object* const frames) {
 	}
 
 	size_t screen_size[2];
-	app_render_size_get(&screen_size[0], &screen_size[1]);
+	prog_render_size_get(&screen_size[0], &screen_size[1]);
 	glDisable(GL_SCISSOR_TEST);
 	glViewport(0, 0, screen_size[0], screen_size[1]);
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -210,7 +210,7 @@ frames_status_type frames_draw_latest(frames_object* const frames) {
 	}
 
 	if (latest_frame_found) {
-		SDL_Window* const window = app_window_get();
+		SDL_Window* const window = prog_window_get();
 		assert(window != NULL);
 		SDL_GL_SwapWindow(window);
 		return FRAMES_STATUS_PRESENT;

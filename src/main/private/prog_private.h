@@ -23,45 +23,45 @@
  * SOFTWARE.
  */
 
-#include "main/app.h"
+#include "main/prog.h"
 
 /*
- * Initialize the application. Must only be called in the main thread.
+ * Initialize the program. Must only be called in the main thread.
  */
-bool app_init(const int argc, char** const argv);
+bool prog_init(const int argc, char** const argv);
 
 /*
- * Deinitialize the application. Must only be called in the main thread.
+ * Deinitialize the program. Must only be called in the main thread.
  */
-void app_deinit();
+void prog_deinit();
 
 /*
  * Set the name for the current thread. If name is NULL, this unsets the current
  * thread's name, back to NULL.
  */
-bool app_this_thread_name_set(const char* const name);
+bool prog_this_thread_name_set(const char* const name);
 
 /*
  * Get the name for the current thread. A get will return NULL if the name is
  * not currently set for the current thread.
  */
-const char* const app_this_thread_name_get();
+const char* const prog_this_thread_name_get();
 
 /*
- * Does one step of updating the application's main thread tasks (reading input
- * and updating the game).
+ * Does one step of updating the program's main thread tasks (reading input and
+ * updating the game).
  *
  * This function should be called in a loop, continuing so long as this function
  * returns QUIT_NOT, breaking out when this function returns QUIT_SUCCESS or
  * QUIT_FAILURE, returning EXIT_SUCCESS or EXIT_FAILURE to the operating system
  * corresponding to the returned quit status.
  *
- * This function must only be called in the main thread, between app_init and
- * app_deinit.
+ * This function must only be called in the main thread, between prog_init and
+ * prog_deinit.
  */
-quit_status_type app_update();
+quit_status_type prog_update();
 
 /*
- * Returns the application's window.
+ * Returns the program's window.
  */
-SDL_Window* app_window_get();
+SDL_Window* prog_window_get();

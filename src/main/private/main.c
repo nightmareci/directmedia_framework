@@ -23,10 +23,10 @@
  */
 
 #include "main/main.h"
-#include "main/private/app_private.h"
+#include "main/private/prog_private.h"
 #include "util/private/mem_private.h"
 #include "util/private/log_private.h"
-#include "game/game.h"
+#include "app/app.h"
 #include "SDL.h"
 #include <stdlib.h>
 #include <inttypes.h>
@@ -46,7 +46,7 @@ SDL_threadID main_thread_id_get() {
 	return main_thread_id;
 }
 
-bool this_thread_is_main_thread() {
+bool main_thread_is_this_thread() {
 	return SDL_ThreadID() == main_thread_id_get();
 }
 
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
 		return EXIT_FAILURE;
 	}
 
-	if (!app_init(argc, argv)) {
+	if (!prog_init(argc, argv)) {
 		return EXIT_FAILURE;
 	}
 
@@ -91,9 +91,9 @@ int main(int argc, char** argv) {
 
 	quit_status_type quit_status;
 	for (
-		quit_status = app_update();
+		quit_status = prog_update();
 		quit_status == QUIT_NOT;
-		quit_status = app_update()
+		quit_status = prog_update()
 	) {
 	}
 
@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
 	SDL_SetHint(SDL_HINT_THREAD_FORCE_REALTIME_TIME_CRITICAL, "0");
 #endif
 
-	app_deinit();
+	prog_deinit();
 	log_printf("Shut down program\n");
 	SDL_Quit();
 

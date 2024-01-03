@@ -22,10 +22,10 @@
  * SOFTWARE.
  */
 
-#include "game/game.h"
+#include "app/app.h"
 #include "input/action.h"
 #include "render/render.h"
-#include "main/app.h"
+#include "main/prog.h"
 #include "util/maths.h"
 #include "util/nanotime.h"
 #include "util/mem.h"
@@ -48,7 +48,7 @@ fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in\n
 culpa qui officia deserunt mollit anim id est laborum.\
 ";
 
-bool game_init(uint64_t* const tick_duration) {
+bool app_init(uint64_t* const tick_duration) {
 	*tick_duration = TICK_DURATION;
 	ticks = 0u;
 	last_tick_time = nanotime_now();
@@ -57,7 +57,7 @@ bool game_init(uint64_t* const tick_duration) {
 	return true;
 }
 
-bool game_update(bool* const quit_now, const uint64_t current_time) {
+bool app_update(bool* const quit_now, const uint64_t current_time) {
 	*quit_now = false;
 
 	if (action_bool_get(ACTION_SET_BASIC_MENU, ACTION_SET_BASIC_MENU_NEGATIVE)) {
@@ -100,7 +100,7 @@ bool game_update(bool* const quit_now, const uint64_t current_time) {
 			ticks,
 			current_tick_rate,
 			average_ticks / (average_duration / (double)NANOTIME_NSEC_PER_SEC),
-			app_render_frame_rate_get(),
+			prog_render_frame_rate_get(),
 			mem_total() / (double)BYTES_PER_MEBIBYTE,
 			mem_left() / (double)BYTES_PER_MEBIBYTE,
 			text
@@ -123,7 +123,7 @@ bool game_update(bool* const quit_now, const uint64_t current_time) {
 			
 			ticks,
 			current_tick_rate,
-			app_render_frame_rate_get(),
+			prog_render_frame_rate_get(),
 			mem_total() / (double)BYTES_PER_MEBIBYTE,
 			mem_left() / (double)BYTES_PER_MEBIBYTE,
 			text

@@ -81,26 +81,26 @@ configure_file("${SRC}/src/main/private/app_const.c.in" "${BIN}/src/main/private
 
 # TODO: Refactor so headers are precompiled.
 add_executable("${EXE}"
-	# Sources for the game follow. All game sources should be under the
-	# src/game directory, not in any other directories in src/.
+	# Sources for the app follow. All app sources should be under the
+	# src/app directory, not in any other directories in src/.
 
 
-	"${SRC}/src/game/game.h"
+	"${SRC}/src/app/app.h"
 
-	"${SRC}/src/game/game.c"
+	"${SRC}/src/app/app.c"
 
 
 	# Sources for the engine follow.
 
 
-	"${SRC}/src/main/app.h"
 	"${SRC}/src/main/main.h"
+	"${SRC}/src/main/prog.h"
 
-	"${SRC}/src/main/private/app_private.h"
+	"${SRC}/src/main/private/prog_private.h"
 
-	"${SRC}/src/main/private/app.c"
 	"${BIN}/src/main/private/app_const.c"
 	"${SRC}/src/main/private/main.c"
+	"${SRC}/src/main/private/prog.c"
 
 
 	"${SRC}/src/input/action.h"

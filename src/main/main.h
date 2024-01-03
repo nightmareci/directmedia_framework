@@ -26,5 +26,13 @@
 #include "SDL_thread.h"
 #include <stdbool.h>
 
+/*
+ * Returns the thread ID of the main thread.
+ */
 SDL_threadID main_thread_id_get();
-bool this_thread_is_main_thread();
+
+/*
+ * Returns true if the thread which calls this function is the main thread,
+ * otherwise false.
+ */
+bool main_thread_is_this_thread();

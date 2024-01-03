@@ -34,22 +34,22 @@ typedef enum quit_status_type {
 } quit_status_type;
 
 /*
- * The organization that develops the application.
+ * The organization that develops the program.
  */
 extern const char* const app_organization;
 
 /*
- * The name of the application's executable.
+ * The name of the program's executable.
  */
 extern const char* const app_executable;
 
 /*
- * The name of the application.
+ * The name of the program.
  */
 extern const char* const app_name;
 
 /*
- * The version of the application.
+ * The version of the program.
  */
 extern const char* const app_version;
 
@@ -59,21 +59,22 @@ extern const char* const app_version;
 extern const char* const app_configure_time;
 
 /*
- * The text shown in the application's window title.
+ * The text shown in the program's window title.
  */
 extern const char* const app_title;
 
 /*
- * Returns true if the application is fully initialized, otherwise false.
+ * Returns true if the program is fully initialized and ready to run up the
+ * user's app code, otherwise false.
  */
-bool app_inited();
+bool prog_inited();
 
 /*
  * Returns the size of the render output pixel rectangle the game renders into,
  * which may differ from other graphical dimensions, such as the total size of
  * the window.
  */
-void app_render_size_get(size_t* const width, size_t* const height);
+void prog_render_size_get(size_t* const width, size_t* const height);
 
 /*
  * Returns the current rendering frame rate. The current rendering frame rate is
@@ -82,14 +83,14 @@ void app_render_size_get(size_t* const width, size_t* const height);
  * if game updates are slower paced than display refresh rate. Rendering frame
  * rate is independent of game update rate.
  */
-double app_render_frame_rate_get();
+double prog_render_frame_rate_get();
 
 /*
  * Returns the current resource path.
  */
-const char* app_resource_path_get();
+const char* prog_resource_path_get();
 
 /*
  * Returns the current save path.
  */
-const char* app_save_path_get();
+const char* prog_save_path_get();

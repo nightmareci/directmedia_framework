@@ -23,7 +23,7 @@
  */
 
 #include "util/private/log_private.h"
-#include "main/private/app_private.h"
+#include "main/private/prog_private.h"
 #include "util/private/conqueue.h"
 #include "util/str.h"
 #include "util/mem.h"
@@ -69,7 +69,7 @@ static bool inited() {
 }
 
 bool log_init(const char* const all_output) {
-	assert(this_thread_is_main_thread());
+	assert(main_thread_is_this_thread());
 	assert(output_files == 0);
 	assert(print_to_all_output);
 
@@ -81,7 +81,7 @@ bool log_init(const char* const all_output) {
 			print_all_output_to_stdout = true;
 		}
 		else {
-			char* const full_filename = alloc_sprintf("%s%s", app_save_path_get(), all_output);
+			char* const full_filename = alloc_sprintf("%s%s", prog_save_path_get(), all_output);
 			assert(full_filename != NULL);
 			if (full_filename == NULL) {
 				return false;
@@ -164,7 +164,7 @@ bool log_all_output_dequeue(const uint64_t allotted_time) {
 	}
 
 	if (print_all_output_to_stdout) {
-		const bool is_main_thread = this_thread_is_main_thread();
+		const bool is_main_thread = main_thread_is_this_thread();
 		assert(is_main_thread);
 		if (!is_main_thread) {
 			return false;
@@ -213,7 +213,7 @@ bool log_filename_set(const char* const filename) {
 		return false;
 	}
 
-	char* const full_filename = alloc_sprintf("%s%s", app_save_path_get(), filename);
+	char* const full_filename = alloc_sprintf("%s%s", prog_save_path_get(), filename);
 	assert(full_filename != NULL);
 	if (full_filename == NULL) {
 		return false;
@@ -239,7 +239,7 @@ bool log_filename_set(const char* const filename) {
 }
 
 static void uninited_put(const char* const text) {
-	const bool is_main_thread = this_thread_is_main_thread();
+	const bool is_main_thread = main_thread_is_this_thread();
 	assert(is_main_thread);
 	if (!is_main_thread) {
 		abort();
@@ -268,7 +268,7 @@ void log_text(const char* const text) {
 		return;
 	}
 	else if (print_to_all_output) {
-		const char* const thread_name = app_this_thread_name_get();
+		const char* const thread_name = prog_this_thread_name_get();
 		char* enqueued_text;
 		if (thread_name == NULL) {
 			enqueued_text = alloc_sprintf("%s", text);
@@ -313,7 +313,7 @@ static char* formatted_text_alloc(const char* const format, va_list args) {
 		if (base_text == NULL) {
 			abort();
 		}
-		const char* const thread_name = app_this_thread_name_get();
+		const char* const thread_name = prog_this_thread_name_get();
 		if (thread_name == NULL) {
 			text = base_text;
 		}
