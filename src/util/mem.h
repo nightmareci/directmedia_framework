@@ -161,6 +161,7 @@ size_t mem_left();
  */
 
 // TODO: Finalize the bump allocator code and use it once finalized.
+// TODO: Memory alignment must be indicated to the alloc functions, and handled appropriately.
 
 typedef struct mem_bump_object mem_bump_object;
 

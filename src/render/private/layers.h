@@ -28,6 +28,7 @@
  */
 
 #include "render/render_types.h"
+#include "data/data_texture.h"
 #include <stdbool.h>
 #include <stddef.h>
 

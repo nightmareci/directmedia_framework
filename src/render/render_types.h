@@ -24,7 +24,6 @@
  */
 
 #include "util/maths.h"
-#include "data/data_texture.h"
 
 typedef struct sprite_type {
 	vec4 src;

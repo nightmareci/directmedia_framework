@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 cmake_minimum_required(VERSION 3.16)
-project(skill-clear
+project(directmedia_framework
 	VERSION 0.0.0
 	LANGUAGES C
 )
@@ -37,7 +37,7 @@ set(BIN "${CMAKE_CURRENT_BINARY_DIR}")
 
 set(ORG "nightmareci")
 set(EXE "${CMAKE_PROJECT_NAME}")
-set(NAME "Skill Clear")
+set(NAME "${EXE}")
 
 option(SHOW_RELEASE_VERSION "If enabled, the build is a finalized release version, and the game will show the release version. If disabled, the text \"Prerelease <UTC build timestamp>\" will be shown instead.")
 
@@ -395,7 +395,53 @@ if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
 elseif(BUILD_TARGET STREQUAL Darwin)
 	# TODO: Support installation for macOS.
 elseif(BUILD_TARGET STREQUAL Linux)
-	# TODO: Support installation for Linux.
+	option(GENERATE_APPIMAGE "If enabled, a Linux AppImage will be generated from the build, containing the executable and resource files.")
+
+	if(GENERATE_APPIMAGE)
+		set(APPDIR "${BIN}/AppDir")
+		set(APPIMAGE_TOOL "${BIN}/AppImageTool.AppImage" CACHE INTERNAL "")
+		install(CODE "
+			if(NOT EXISTS \"${APPIMAGE_TOOL}\")
+				file(DOWNLOAD https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${CMAKE_SYSTEM_PROCESSOR}.AppImage \"${APPIMAGE_TOOL}\")
+				execute_process(COMMAND chmod +x \"${APPIMAGE_TOOL}\")
+			endif()
+
+			file(MAKE_DIRECTORY \"${APPDIR}\")
+			file(WRITE \"${BIN}/AppRun\"
+\"#!/bin/sh
+cd \\\"$(dirname \\\"$0\\\")\\\"
+./${EXE} $@\"
+			)
+		")
+
+		install(PROGRAMS "${BIN}/AppRun" DESTINATION "${APPDIR}")
+		install(TARGETS "${EXE}" RUNTIME DESTINATION "${APPDIR}")
+		install(DIRECTORY resource DESTINATION "${APPDIR}")
+		install(CODE "file(WRITE \"${APPDIR}/${NAME}.desktop\"
+\"[Desktop Entry]
+Type=Application
+Name=${NAME}
+Icon=${NAME}
+Categories=X-None;\"
+		)")
+		install(FILES "${SRC}/src/resource/icon.png" DESTINATION "${APPDIR}" RENAME "${NAME}.png")
+
+		install(CODE "execute_process(COMMAND \"${APPIMAGE_TOOL}\" \"${APPDIR}\" \"${BIN}/${NAME}.AppImage\")")
+		install(PROGRAMS "${BIN}/${NAME}.AppImage" DESTINATION .)
+		install(FILES copyright.txt DESTINATION .)
+	else()
+		include(GNUInstallDirs REQUIRED)
+		set(INSTALL_ROOTDIR "${CMAKE_INSTALL_DATAROOTDIR}/${EXE}")
+		install(TARGETS "${EXE}" RUNTIME DESTINATION "${INSTALL_ROOTDIR}")
+		install(DIRECTORY resource DESTINATION "${INSTALL_ROOTDIR}")
+		install(FILES copyright.txt DESTINATION "${INSTALL_ROOTDIR}")
+		install(CODE "file(WRITE \"${BIN}/launch.sh\"
+\"#!/bin/sh
+\\\"${CMAKE_INSTALL_PREFIX}/${INSTALL_ROOTDIR}/${EXE}\\\" $@\"
+			)"
+		)
+		install(PROGRAMS "${BIN}/launch.sh" TYPE BIN RENAME "${EXE}")
+	endif()
 endif()
 
 set(CPACK_PACKAGE_NAME "${NAME}")
@@ -409,4 +455,5 @@ elseif(APPLE OR NOT CMAKE_SYSTEM_PROCESSOR)
 else()
 	set(CPACK_PACKAGE_FILE_NAME "${NAME} ${BUILD_TARGET} ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
+set(CPACK_GENERATOR ZIP CACHE STRING "The generator to use for CPack. \"ZIP\" is the default.")
 include(CPack)

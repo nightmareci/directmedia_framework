@@ -38,6 +38,10 @@ static bool reset_average;
 static uint64_t average_ticks;
 static uint64_t average_duration;
 static uint64_t last_tick_time;
+static const render_settings_type render_settings = {
+	.width = 640.0f,
+	.height = 480.0f
+};
 
 static const char* const text = "\
 Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor\n\
@@ -60,21 +64,20 @@ bool app_init(uint64_t* const tick_duration) {
 bool app_update(bool* const quit_now, const uint64_t current_time) {
 	*quit_now = false;
 
-	if (action_bool_get(ACTION_SET_BASIC_MENU, ACTION_SET_BASIC_MENU_NEGATIVE)) {
+	if (action_bool_get(ACTION_SET_BASIC_MENU, BASIC_MENU_NEGATIVE)) {
 		*quit_now = true;
 		return true;
 	}
 
-	if (action_bool_get(ACTION_SET_BASIC_MENU, ACTION_SET_BASIC_MENU_POSITIVE)) {
+	if (action_bool_get(ACTION_SET_BASIC_MENU, BASIC_MENU_POSITIVE)) {
 		reset_average = true;
 	}
 
-	if (!render_start(640.0f, 480.0f)) {
+	if (!render_start(&render_settings)) {
 		return false;
 	}
 
 	const uint64_t current_tick_duration = nanotime_interval(last_tick_time, current_time, nanotime_now_max());
-	const double current_tick_rate = (double)NANOTIME_NSEC_PER_SEC / current_tick_duration;
 	if (!reset_average) {
 		average_ticks++;
 		average_duration += current_tick_duration;
@@ -90,17 +93,17 @@ bool app_update(bool* const quit_now, const uint64_t current_time) {
 	if (!reset_average) {
 		if (!render_printf("font.fnt", 1u, 8.0f, 8.0f, "\
 			Ticks: %" PRIu64 "\n\n\
-			Current tick rate: %.9f\n\n\
-			Average tick rate: %.9f\n\n\
-			Current render frame rate: %.9f\n\n\
+			Current tick duration: %" PRIu64 " ns\n\n\
+			Average tick duration: %" PRIu64 " ns\n\n\
+			Current render frame duration: %" PRIu64 " ns\n\n\
 			Total dynamic memory in use: %.04f MiB\n\n\
 			Total physical memory available: %.04f MiB\n\n\
 			Test text:\n%s",
 
 			ticks,
-			current_tick_rate,
-			average_ticks / (average_duration / (double)NANOTIME_NSEC_PER_SEC),
-			prog_render_frame_rate_get(),
+			current_tick_duration,
+			average_duration / average_ticks,
+			prog_render_frame_duration_get(),
 			mem_total() / (double)BYTES_PER_MEBIBYTE,
 			mem_left() / (double)BYTES_PER_MEBIBYTE,
 			text
@@ -114,16 +117,16 @@ bool app_update(bool* const quit_now, const uint64_t current_time) {
 		average_duration = 0u;
 		if (!render_printf("font.fnt", 1u, 8.0f, 8.0f, "\
 			Ticks: %" PRIu64 "\n\n\
-			Current tick rate: %.9f\n\n\
-			Average tick rate: N/A\n\n\
-			Current render frame rate: %.9f\n\n\
+			Current tick duration: %" PRIu64 " ns\n\n\
+			Average tick duration: N/A\n\n\
+			Current render frame duration: %" PRIu64 " ns\n\n\
 			Total dynamic memory in use: %.04f MiB\n\n\
 			Total physical memory available: %.04f MiB\n\n\
 			Test text:\n%s",
 			
 			ticks,
-			current_tick_rate,
-			prog_render_frame_rate_get(),
+			current_tick_duration,
+			prog_render_frame_duration_get(),
 			mem_total() / (double)BYTES_PER_MEBIBYTE,
 			mem_left() / (double)BYTES_PER_MEBIBYTE,
 			text

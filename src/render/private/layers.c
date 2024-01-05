@@ -28,6 +28,7 @@
 
 #include "render/private/layers.h"
 #include "render/private/sprites.h"
+#include "data/data_texture.h"
 #include "util/mem.h"
 #include "SDL_video.h"
 #include <assert.h>

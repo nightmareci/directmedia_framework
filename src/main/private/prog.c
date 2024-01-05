@@ -94,8 +94,21 @@ static int render_height = 0;
  */
 static SDL_atomic_t render_stepper_init_flag = { 0 };
 
-static SDL_SpinLock render_frame_rate_lock;
-static double render_frame_rate = -1.0;
+/*
+ * On platforms whose pointers are 64-bit or larger, we can use pointer atomics
+ * instead of spinlocks. uintptr_t support is required for this to be fully
+ * portable.
+ */
+#if UINTPTR_MAX < UINT64_MAX
+#define SPINLOCK_FOR_UINT64
+#endif
+
+#ifdef SPINLOCK_FOR_UINT64
+static SDL_SpinLock render_frame_duration_lock;
+static uint64_t render_frame_duration = 0u;
+#else
+static void* render_frame_duration = NULL;
+#endif
 
 static nanotime_step_data main_stepper;
 
@@ -130,8 +143,8 @@ static SDL_atomic_t prog_inited_flag = { 0 };
  *
  * 6. To guarantee the render thread exits when it's quitting time, the main
  * thread does one final semaphore-post-to-render, also ensuring it did a
- * release-set of quit_now before the post, to guarantee the render thread's
- * get-acquire of quit_now indicates it's time to quit.
+ * release-set of quit_status before the post, to guarantee the render thread's
+ * get-acquire of quit_status indicates it's time to quit.
  *
  * 7. The render thread does a release-set of the context pointer to the same
  * value it already was, for later sync-to-main-thread via get-acquire of the
@@ -433,8 +446,8 @@ static uint64_t frame_duration_get() {
 }
 
 static int SDLCALL render_thread_func(void* data) {
-	// Ensure quit_now in this thread is at the oldest the first value written
-	// in the main thread.
+	// Ensure quit_status in this thread is at the oldest the first value
+	// written in the main thread.
 	SDL_AtomicGet(&quit_status);
 	SDL_MemoryBarrierAcquire();
 
@@ -446,8 +459,8 @@ static int SDLCALL render_thread_func(void* data) {
 
 #ifndef STDOUT_LOG
 	if (!log_filename_set("log_render.txt")) {
-		SDL_AtomicSet(&quit_now, QUIT_FAILURE);
-		SEM_POST(sem_log_filename);
+		SDL_AtomicSet(&quit_status, QUIT_FAILURE);
+		SEM_POST(log_filename_sem);
 		return EXIT_FAILURE;
 	}
 	log_printf("Successfully set render thread's log filename (log_render.txt)\n");
@@ -585,10 +598,13 @@ static int SDLCALL render_thread_func(void* data) {
 		const uint64_t start = stepper.sleep_point;
 		skipped = !nanotime_step(&stepper);
 		const uint64_t interval = nanotime_interval(start, stepper.sleep_point, now_max);
-		const double next_frame_rate = (double)NANOTIME_NSEC_PER_SEC / interval;
+#ifdef SPINLOCK_FOR_UINT64
 		SDL_AtomicLock(&render_frame_rate_lock);
-		render_frame_rate = next_frame_rate;
+		render_frame_duration = interval;
 		SDL_AtomicUnlock(&render_frame_rate_lock);
+#else
+		SDL_AtomicSetPtr(&render_frame_duration, (void*)(uintptr_t)interval);
+#endif
 	}
 
 	log_printf("Broke out of the render loop\n");
@@ -913,11 +929,15 @@ void prog_render_size_get(size_t* const width, size_t* const height) {
 	SDL_AtomicUnlock(&render_size_lock);;
 }
 
-double prog_render_frame_rate_get() {
-	SDL_AtomicLock(&render_frame_rate_lock);
-	const double frame_rate = render_frame_rate;
-	SDL_AtomicUnlock(&render_frame_rate_lock);
-	return frame_rate;
+uint64_t prog_render_frame_duration_get() {
+#ifdef SPINLOCK_FOR_UINT64
+	SDL_AtomicLock(&render_frame_duration_lock);
+	const double frame_duration = render_frame_duration;
+	SDL_AtomicUnlock(&render_frame_duration_lock);
+	return frame_duration;
+#else
+	return (uint64_t)(uintptr_t)SDL_AtomicGetPtr(&render_frame_duration);
+#endif
 }
 
 static void SDLCALL thread_name_destructor(void* name) {

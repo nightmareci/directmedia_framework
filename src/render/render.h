@@ -23,19 +23,55 @@
  * SOFTWARE.
  */
 
+/*
+ * Simple render API. Layer indices are ordered bottom-to-top, 0 on up.
+ */
+
 #include "render/render_types.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
-bool render_start(const int width, const int height);
+typedef struct render_settings_type {
+	float width;
+	float height;
+} render_settings_type;
 
+/*
+ * Start a render frame using the passed-in settings. Other render API functions
+ * may be called after calling this function, terminated by a single render_end
+ * call.
+ */
+bool render_start(const render_settings_type* const settings);
+
+/*
+ * End a render frame. Must be called; it's fatally erroneous to not pair start
+ * and end.
+ */
 bool render_end();
 
+/*
+ * Clear the rendered screen using the specified RGBA color. Colors are
+ * specified in the range [0.0f, 1.0f], 0.0f as no-color (black) and 1.0f as
+ * full-color (white). Only clears within the app render content rectangle, not
+ * the entire contents of the window, in cases where the render content
+ * mismatches the aspect ratio of the window content. The window content outside
+ * the rendered rectangle is always pure black.
+ */
 bool render_clear(const float red, const float green, const float blue, const float alpha);
 
+/*
+ * Render the requested list of sprites. For best performance, batch up sprites
+ * as largely as possible, into fewer render_sprites calls.
+ */
 bool render_sprites(const char* const sheet_filename, const size_t layer_index, const size_t num_added, const sprite_type* const added_sprites);
 
+/*
+ * Render the requested string directly, without formatting interpretation, using the indicated font.
+ */
 bool render_string(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const string);
 
+/*
+ * Render the requested formatted string, using the indicated font.
+ */
 bool render_printf(const char* const font_filename, const size_t layer_index, const float x, const float y, const char* const format, ...);

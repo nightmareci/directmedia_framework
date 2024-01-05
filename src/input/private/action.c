@@ -24,6 +24,8 @@
 
 #include "input/action.h"
 #include "SDL.h"
+#include "SDL_keyboard.h"
+#include <assert.h>
 
 bool action_bool_get(const size_t set, const size_t action) {
 	const Uint8* const keys = SDL_GetKeyboardState(NULL);
@@ -32,12 +34,12 @@ bool action_bool_get(const size_t set, const size_t action) {
 	switch (set) {
 	case ACTION_SET_BASIC_MENU:
 		switch (action) {
-		case ACTION_SET_BASIC_MENU_UP:       scancode = SDL_GetScancodeFromKey(SDLK_UP); break;
-		case ACTION_SET_BASIC_MENU_DOWN:     scancode = SDL_GetScancodeFromKey(SDLK_DOWN); break;
-		case ACTION_SET_BASIC_MENU_LEFT:     scancode = SDL_GetScancodeFromKey(SDLK_LEFT); break;
-		case ACTION_SET_BASIC_MENU_RIGHT:    scancode = SDL_GetScancodeFromKey(SDLK_RIGHT); break;
-		case ACTION_SET_BASIC_MENU_POSITIVE: scancode = SDL_GetScancodeFromKey(SDLK_RETURN); break;
-		case ACTION_SET_BASIC_MENU_NEGATIVE: scancode = SDL_GetScancodeFromKey(SDLK_ESCAPE); break;
+		case BASIC_MENU_UP:       scancode = SDL_GetScancodeFromKey(SDLK_UP); break;
+		case BASIC_MENU_DOWN:     scancode = SDL_GetScancodeFromKey(SDLK_DOWN); break;
+		case BASIC_MENU_LEFT:     scancode = SDL_GetScancodeFromKey(SDLK_LEFT); break;
+		case BASIC_MENU_RIGHT:    scancode = SDL_GetScancodeFromKey(SDLK_RIGHT); break;
+		case BASIC_MENU_POSITIVE: scancode = SDL_GetScancodeFromKey(SDLK_RETURN); break;
+		case BASIC_MENU_NEGATIVE: scancode = SDL_GetScancodeFromKey(SDLK_ESCAPE); break;
 		default: return false;
 		}
 		if (scancode == SDL_SCANCODE_UNKNOWN) return false;
@@ -54,12 +56,12 @@ float action_float_get(const size_t set, const size_t action) {
 	switch (set) {
 	case ACTION_SET_BASIC_MENU:
 		switch (action) {
-		case ACTION_SET_BASIC_MENU_UP:       scancode = SDL_GetScancodeFromKey(SDLK_UP); break;
-		case ACTION_SET_BASIC_MENU_DOWN:     scancode = SDL_GetScancodeFromKey(SDLK_DOWN); break;
-		case ACTION_SET_BASIC_MENU_LEFT:     scancode = SDL_GetScancodeFromKey(SDLK_LEFT); break;
-		case ACTION_SET_BASIC_MENU_RIGHT:    scancode = SDL_GetScancodeFromKey(SDLK_RIGHT); break;
-		case ACTION_SET_BASIC_MENU_POSITIVE: scancode = SDL_GetScancodeFromKey(SDLK_RETURN); break;
-		case ACTION_SET_BASIC_MENU_NEGATIVE: scancode = SDL_GetScancodeFromKey(SDLK_ESCAPE); break;
+		case BASIC_MENU_UP:       scancode = SDL_GetScancodeFromKey(SDLK_UP); break;
+		case BASIC_MENU_DOWN:     scancode = SDL_GetScancodeFromKey(SDLK_DOWN); break;
+		case BASIC_MENU_LEFT:     scancode = SDL_GetScancodeFromKey(SDLK_LEFT); break;
+		case BASIC_MENU_RIGHT:    scancode = SDL_GetScancodeFromKey(SDLK_RIGHT); break;
+		case BASIC_MENU_POSITIVE: scancode = SDL_GetScancodeFromKey(SDLK_RETURN); break;
+		case BASIC_MENU_NEGATIVE: scancode = SDL_GetScancodeFromKey(SDLK_ESCAPE); break;
 		default: return 0.0f;
 		}
 		if (scancode == SDL_SCANCODE_UNKNOWN) return 0.0f;

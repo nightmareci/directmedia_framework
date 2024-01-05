@@ -24,6 +24,7 @@
  */
 
 #include "main/prog.h"
+#include "SDL.h"
 
 /*
  * Initialize the program. Must only be called in the main thread.

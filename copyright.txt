@@ -1,5 +1,5 @@
-The source code and texts of Skill Clear are provided under this license, with
-other source code and texts, as indicated, under other licenses:
+The source code and texts of DirectMedia Framework are provided under this
+license, with other source code and texts, as indicated, under other licenses:
 
 MIT License
 

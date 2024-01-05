@@ -27,6 +27,7 @@
 #include "render/private/layers.h"
 #include "render/private/print.h"
 #include "render/private/opengl.h"
+#include "data/data_texture.h"
 #include "main/prog.h"
 #include "data/data.h"
 #include "util/log.h"
@@ -37,6 +38,7 @@
 #include <assert.h>
 
 static frames_object* render_frames;
+static const render_settings_type* current_settings = NULL;
 static data_cache_object* data_cache;
 #define NUM_LAYERS 2u
 static layers_object* layers;
@@ -84,12 +86,11 @@ void render_deinit() {
 }
 
 static bool render_start_update_func(void* const state) {
-	ivecptr const screen_size = state;
+	const render_settings_type* const settings = state;
 
 	if (sprites == NULL) {
 		sprites = sprites_create(0u);
 		if (sprites == NULL) {
-			mem_free(screen_size);
 			return false;
 		}
 	}
@@ -103,7 +104,6 @@ static bool render_start_update_func(void* const state) {
 	if (layers == NULL) {
 		layers = layers_create(NUM_LAYERS);
 		if (layers == NULL) {
-			mem_free(screen_size);
 			return false;
 		}
 	}
@@ -111,11 +111,11 @@ static bool render_start_update_func(void* const state) {
 		layers_restart(layers);
 	}
 
-	sprites_screen_set(sprites, screen_size[0], screen_size[1]);
-	layers_screen_set(layers, screen_size[0], screen_size[1]);
+	sprites_screen_set(sprites, settings->width, settings->height);
+	layers_screen_set(layers, settings->width, settings->height);
 
 	const float render_aspect = (float)render_width / (float)render_height;
-	const float screen_aspect = (float)screen_size[0] / (float)screen_size[1];
+	const float screen_aspect = (float)settings->width / (float)settings->height;
 	GLint set_x, set_y;
 	GLsizei set_width, set_height;
 	if (render_aspect == screen_aspect) {
@@ -141,24 +141,19 @@ static bool render_start_update_func(void* const state) {
 	glScissor(set_x, set_y, set_width, set_height);
 	glViewport(set_x, set_y, set_width, set_height);;
 
-	mem_free(screen_size);
 	return true;
 }
 
-bool render_start(const int width, const int height) {
+bool render_start(const render_settings_type* const settings) {
+	assert(settings != NULL);
+
 	static const command_funcs funcs = {
 		.update = render_start_update_func,
 		.draw = NULL,
 		.destroy = NULL
 	};
 
-	ivecptr const screen_size = mem_malloc(sizeof(ivec2));
-	if (screen_size == NULL) {
-		return false;
-	}
-	screen_size[0] = width;
-	screen_size[1] = height;
-	return frames_enqueue_command(render_frames, &funcs, screen_size);
+	return frames_enqueue_command(render_frames, &funcs, (void*)settings);
 }
 
 static bool render_end_draw_func(void* const state) {

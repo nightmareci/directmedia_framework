@@ -23,7 +23,7 @@
  * SOFTWARE.
  */
 
-#include "SDL.h"
+#include "util/nanotime.h"
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -77,13 +77,14 @@ bool prog_inited();
 void prog_render_size_get(size_t* const width, size_t* const height);
 
 /*
- * Returns the current rendering frame rate. The current rendering frame rate is
- * variable, and not completely tied to display refresh rate, but is maintained
- * to around up to the display refresh rate, or around the rate of game updates
- * if game updates are slower paced than display refresh rate. Rendering frame
- * rate is independent of game update rate.
+ * Returns the current rendering frame duration. The current rendering frame
+ * duration is variable, and not completely tied to display refresh duration,
+ * but is maintained to around up to the display refresh duration, or around the
+ * duration of game updates if game updates are slower paced than display
+ * refresh duration. Rendering frame duration is independent of game update
+ * duration.
  */
-double prog_render_frame_rate_get();
+uint64_t prog_render_frame_duration_get();
 
 /*
  * Returns the current resource path.

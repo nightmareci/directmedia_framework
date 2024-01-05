@@ -77,15 +77,15 @@ typedef enum action_set_type {
  *
  * All basic menu actions are boolean.
  */
-typedef enum action_set_basic_menu_type {
-	ACTION_SET_BASIC_MENU_UP,
-	ACTION_SET_BASIC_MENU_DOWN,
-	ACTION_SET_BASIC_MENU_LEFT,
-	ACTION_SET_BASIC_MENU_RIGHT,
-	ACTION_SET_BASIC_MENU_POSITIVE,
-	ACTION_SET_BASIC_MENU_NEGATIVE,
-	ACTION_SET_BASIC_MENU_NUM_ACTIONS
-} action_set_basic_menu_type;
+typedef enum basic_menu_type {
+	BASIC_MENU_UP,
+	BASIC_MENU_DOWN,
+	BASIC_MENU_LEFT,
+	BASIC_MENU_RIGHT,
+	BASIC_MENU_POSITIVE,
+	BASIC_MENU_NEGATIVE,
+	BASIC_MENU_NUM_ACTIONS
+} basic_menu_type;
 
 /*
  * Get the current state of an action set's boolean action. false is always
