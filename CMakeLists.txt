@@ -26,9 +26,6 @@ project(directmedia_framework
 	LANGUAGES C
 )
 
-set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target.")
-message(STATUS "Build target: ${BUILD_TARGET}")
-
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED TRUE)
 
@@ -39,33 +36,54 @@ set(ORG "nightmareci")
 set(EXE "${CMAKE_PROJECT_NAME}")
 set(NAME "${EXE}")
 
-option(SHOW_RELEASE_VERSION "If enabled, the build is a finalized release version, and the game will show the release version. If disabled, the text \"Prerelease <UTC build timestamp>\" will be shown instead.")
+set(BUILD_TARGET "${CMAKE_SYSTEM_NAME}" CACHE STRING "The build target. By default, the current platform is the build target.")
+message(STATUS "Build target: ${BUILD_TARGET}")
 
-if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE MATCHES Debug)
-	set(IS_DEBUG TRUE)
+option(BUILD_DIST "If enabled, option defaults will be selected so the build is a release build suitable for distribution." FALSE)
+if(BUILD_DIST)
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+	option(STDOUT_LOG "If enabled, all logging will be printed to stdout." TRUE)
+	option(MEM_DEBUG "If enabled, memory debugging will be included regardless of build type." FALSE)
+	option(RELEASE_DEBUG "If enabled, assertions via release_assert will be active regardless of build type." FALSE)
+	option(USE_VENDOR_LIBRARIES "Enable building and usage of the vendor-provided libraries instead of system-installed libraries." TRUE)
+	if(BUILD_TARGET STREQUAL Linux)
+		option(GENERATE_APPIMAGE "If enabled, a Linux AppImage will be generated from the build, containing the executable and resource files." TRUE)
+	endif()
 else()
-	set(IS_DEBUG FALSE)
+	if(NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE MATCHES Debug)
+		set(IS_DEBUG TRUE)
+	else()
+		set(IS_DEBUG FALSE)
+	endif()
+
+	option(STDOUT_LOG "If enabled, all logging will be printed to stdout." ${IS_DEBUG})
+	option(MEM_DEBUG "If enabled, memory debugging will be included regardless of build type." ${IS_DEBUG})
+	option(RELEASE_DEBUG "If enabled, assertions via release_assert will be active regardless of build type." ${IS_DEBUG})
+	option(USE_VENDOR_LIBRARIES "Enable building and usage of the vendor-provided libraries instead of system-installed libraries." FALSE)
+	if(BUILD_TARGET STREQUAL Linux)
+		option(GENERATE_APPIMAGE "If enabled, a Linux AppImage will be generated from the build, containing the executable and resource files." FALSE)
+	endif()
 endif()
 
-option(STDOUT_LOG "If enabled, all logging will be printed to stdout." ${IS_DEBUG})
 if (STDOUT_LOG)
 	add_compile_definitions(STDOUT_LOG)
 endif()
+if(MEM_DEBUG)
+	add_compile_definitions(MEM_DEBUG)
+endif()
+if(RELEASE_DEBUG)
+	add_compile_definitions(RELEASE_DEBUG)
+endif()
 
+option(BUNDLE_LIBRARIES "Bundle the libraries needed by the game's executable, for distributable releases." FALSE)
+
+option(SHOW_RELEASE_VERSION "If enabled, the build is a finalized release version, and the game will show the release version. If disabled, the text \"Prerelease <UTC build timestamp>\" will be shown instead.")
 option(REALTIME "If enabled, the application update loop will be run with realtime thread priority where supported.")
 if(REALTIME)
 	add_compile_definitions(REALTIME)
 endif()
 
-option(MEM_DEBUG "If enabled, memory debugging will be included regardless of build type." ${IS_DEBUG})
-if(MEM_DEBUG)
-	add_compile_definitions(MEM_DEBUG)
-endif()
-
-option(RELEASE_DEBUG "If enabled, assertions via release_assert will be active regardless of build type." ${IS_DEBUG})
-if(RELEASE_DEBUG)
-	add_compile_definitions(RELEASE_DEBUG)
-endif()
+option(USE_PKG_CONFIG "If TRUE, pkg-config will be used for finding packages, rather than CMake find_package." ${MINGW})
 
 string(TIMESTAMP CONFIGURE_TIME UTC)
 
@@ -74,8 +92,6 @@ if(SHOW_RELEASE_VERSION)
 else()
 	set(VERSION "Prerelease ${CONFIGURE_TIME}")
 endif()
-
-option(USE_VENDOR_LIBRARIES "Enable building and usage of the vendor-provided libraries instead of system-installed libraries." FALSE)
 
 configure_file("${SRC}/src/main/private/app_const.c.in" "${BIN}/src/main/private/app_const.c" @ONLY)
 
@@ -265,11 +281,6 @@ target_include_directories("${EXE}" PRIVATE
 	"${SRC}/lib"
 )
 
-# TODO: Add the libraries as Git submodules and include them in the build, but
-# still have the option to use system-installed libraries.
-
-option(USE_PKG_CONFIG "If TRUE, pkg-config will be used for finding packages, rather than CMake find_package." ${MINGW})
-
 # Use POSIX support when available.
 if(UNIX)
 	find_library(MATH_LIBRARY m)
@@ -363,15 +374,13 @@ else()
 	endif()
 endif()
 
-option(BUNDLE_LIBRARIES "Bundle the libraries needed by the game's executable, for distributable releases." FALSE)
-
-# TODO: Generate game resource files from resource source files at build time
+# TODO: Generate app resource files from resource source files at build time
 # into the build directory resource location; install the build directory
 # resource directory into the installed resource location.
 
 include("${SRC}/src/cmake/InstallRuntimeDependencies.cmake")
 if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
-	option(HIDE_WINDOWS_CONSOLE "Hide the Windows console.")
+	option(HIDE_WINDOWS_CONSOLE "Hide the Windows console." FALSE)
 
 	target_link_options("${EXE}"
 		PRIVATE
@@ -395,38 +404,15 @@ if(BUILD_TARGET STREQUAL Windows AND MSVC AND NOT MINGW)
 elseif(BUILD_TARGET STREQUAL Darwin)
 	# TODO: Support installation for macOS.
 elseif(BUILD_TARGET STREQUAL Linux)
-	option(GENERATE_APPIMAGE "If enabled, a Linux AppImage will be generated from the build, containing the executable and resource files.")
-
 	if(GENERATE_APPIMAGE)
-		set(APPDIR "${BIN}/AppDir")
-		set(APPIMAGE_TOOL "${BIN}/AppImageTool.AppImage" CACHE INTERNAL "")
-		install(CODE "
-			if(NOT EXISTS \"${APPIMAGE_TOOL}\")
-				file(DOWNLOAD https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${CMAKE_SYSTEM_PROCESSOR}.AppImage \"${APPIMAGE_TOOL}\")
-				execute_process(COMMAND chmod +x \"${APPIMAGE_TOOL}\")
-			endif()
-
-			file(MAKE_DIRECTORY \"${APPDIR}\")
-			file(WRITE \"${BIN}/AppRun\"
-\"#!/bin/sh
-cd \\\"$(dirname \\\"$0\\\")\\\"
-./${EXE} $@\"
-			)
-		")
-
-		install(PROGRAMS "${BIN}/AppRun" DESTINATION "${APPDIR}")
-		install(TARGETS "${EXE}" RUNTIME DESTINATION "${APPDIR}")
-		install(DIRECTORY resource DESTINATION "${APPDIR}")
-		install(CODE "file(WRITE \"${APPDIR}/${NAME}.desktop\"
-\"[Desktop Entry]
-Type=Application
-Name=${NAME}
-Icon=${NAME}
-Categories=X-None;\"
-		)")
-		install(FILES "${SRC}/src/resource/icon.png" DESTINATION "${APPDIR}" RENAME "${NAME}.png")
-
-		install(CODE "execute_process(COMMAND \"${APPIMAGE_TOOL}\" \"${APPDIR}\" \"${BIN}/${NAME}.AppImage\")")
+		include("${SRC}/src/cmake/InstallAppImage.cmake")
+		install_app_image(
+			NAME "${NAME}"
+			EXECUTABLE "${EXE}"
+			ICON "${SRC}/src/resource/icon.png"
+			DESTINATION "${BIN}"
+			RESOURCES resource
+		)
 		install(PROGRAMS "${BIN}/${NAME}.AppImage" DESTINATION .)
 		install(FILES copyright.txt DESTINATION .)
 	else()
@@ -447,13 +433,13 @@ endif()
 set(CPACK_PACKAGE_NAME "${NAME}")
 set(CPACK_PACKAGE_VENDOR "${ORG}")
 if(VCPKG_TARGET_TRIPLET)
-	set(CPACK_PACKAGE_FILE_NAME "${NAME} ${VCPKG_TARGET_TRIPLET}")
+	set(CPACK_PACKAGE_FILE_NAME "${NAME}-${VCPKG_TARGET_TRIPLET}")
 elseif(BUILD_TARGET STREQUAL Darwin)
-	set(CPACK_PACKAGE_FILE_NAME "${NAME} macOS")
+	set(CPACK_PACKAGE_FILE_NAME "${NAME}-macOS")
 elseif(APPLE OR NOT CMAKE_SYSTEM_PROCESSOR)
-	set(CPACK_PACKAGE_FILE_NAME "${NAME} ${BUILD_TARGET}")
+	set(CPACK_PACKAGE_FILE_NAME "${NAME}-${BUILD_TARGET}")
 else()
-	set(CPACK_PACKAGE_FILE_NAME "${NAME} ${BUILD_TARGET} ${CMAKE_SYSTEM_PROCESSOR}")
+	set(CPACK_PACKAGE_FILE_NAME "${NAME}-${BUILD_TARGET}-${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 set(CPACK_GENERATOR ZIP CACHE STRING "The generator to use for CPack. \"ZIP\" is the default.")
 include(CPack)
